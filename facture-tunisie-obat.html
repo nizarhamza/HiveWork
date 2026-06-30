@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Facture Tunisie — Style OBAT</title>
+<style>
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  color: #222;
+  background: #d0d0d0;
+  padding: 28px 12px 40px;
+}
+
+/* ── PAGE A4 ── */
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  margin: 0 auto;
+  padding: 0 0 0 0;
+  box-shadow: 0 2px 18px rgba(0,0,0,0.18);
+  position: relative;
+}
+
+/* ─────────────────────────────────────────────
+   HEADER — logo left / client right (grey box)
+───────────────────────────────────────────── */
+.header-outer {
+  padding: 22px 28px 0 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.logo-area {
+  width: 120px;
+  height: 64px;
+  border: 1.5px dashed #bbb;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #aaa;
+  font-style: italic;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.client-box {
+  background: #f0f2f5;
+  border-radius: 3px;
+  padding: 10px 14px;
+  min-width: 200px;
+  max-width: 240px;
+  font-size: 10.5px;
+  line-height: 1.65;
+  color: #333;
+}
+.client-box .client-name { font-weight: 700; color: #111; }
+.client-box .client-mf {
+  font-size: 9px;
+  color: #4a6fa5;
+  font-weight: 600;
+  margin-top: 3px;
+  letter-spacing: 0.3px;
+}
+
+/* ─────────────────────────────────────────────
+   SUPPLIER INFO left / FACTURE title right
+───────────────────────────────────────────── */
+.info-row {
+  padding: 14px 28px 0 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.supplier-info {
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: #333;
+}
+.supplier-info .s-name { font-weight: 700; font-size: 11.5px; color: #111; }
+.supplier-mf {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #4a6fa5;
+  letter-spacing: 0.3px;
+}
+
+.invoice-title-block {
+  text-align: right;
+  min-width: 200px;
+}
+.invoice-title {
+  font-size: 30px;
+  font-weight: 400;
+  color: #4a6fa5;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+.invoice-meta-list {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #444;
+  line-height: 1.8;
+}
+
+/* ─────────────────────────────────────────────
+   OBJET (chantier / mission)
+───────────────────────────────────────────── */
+.objet-section {
+  padding: 16px 28px 8px 28px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #222;
+}
+
+/* ─────────────────────────────────────────────
+   TABLEAU PRINCIPAL
+───────────────────────────────────────────── */
+.table-wrap {
+  padding: 0 28px;
+}
+
+table.main-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+/* Header row */
+table.main-table thead tr {
+  background: #4a6fa5;
+  color: #fff;
+}
+table.main-table thead th {
+  padding: 7px 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: right;
+  white-space: nowrap;
+}
+table.main-table thead th:nth-child(1) { text-align: center; width: 36px; }
+table.main-table thead th:nth-child(2) { text-align: left; }
+table.main-table thead th:nth-child(3) { width: 52px; }  /* Unité */
+table.main-table thead th:nth-child(4) { width: 44px; }  /* Qté */
+table.main-table thead th:nth-child(5) { width: 68px; }  /* Prix U. HT */
+table.main-table thead th:nth-child(6) { width: 50px; }  /* Remise */
+table.main-table thead th:nth-child(7) { width: 44px; }  /* TVA */
+table.main-table thead th:nth-child(8) { width: 76px; }  /* Total HT */
+
+/* ── ROW TYPES ── */
+
+/* Catégorie niveau 1 (ex: "1   Ingénierie de supervision") */
+tr.cat-1 td {
+  background: #eef1f7;
+  font-weight: 700;
+  font-size: 11px;
+  color: #1a1a1a;
+  padding: 7px 8px;
+  border-bottom: 1px solid #d0d8e8;
+}
+tr.cat-1 td:first-child {
+  text-align: center;
+  color: #4a6fa5;
+}
+tr.cat-1 td:last-child {
+  text-align: right;
+  font-family: monospace;
+}
+
+/* Catégorie niveau 2 (ex: "1.1   Mission IE") */
+tr.cat-2 td {
+  background: #f7f8fc;
+  font-weight: 700;
+  font-size: 10.5px;
+  color: #222;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e2e7f0;
+}
+tr.cat-2 td:first-child {
+  text-align: center;
+  color: #4a6fa5;
+  padding-left: 12px;
+}
+tr.cat-2 td:last-child {
+  text-align: right;
+  font-family: monospace;
+}
+
+/* Ligne de détail (ex: "1.1.1") */
+tr.detail td {
+  background: #fff;
+  color: #333;
+  padding: 5px 8px;
+  border-bottom: 1px solid #efefef;
+  vertical-align: top;
+}
+tr.detail td:first-child {
+  text-align: center;
+  color: #4a6fa5;
+  font-size: 10px;
+}
+tr.detail td:last-child {
+  text-align: right;
+  font-family: monospace;
+  font-size: 10px;
+  color: #222;
+}
+tr.detail td:nth-child(3),
+tr.detail td:nth-child(4),
+tr.detail td:nth-child(5),
+tr.detail td:nth-child(6),
+tr.detail td:nth-child(7) {
+  text-align: right;
+}
+tr.detail .fodec-tag {
+  display: inline-block;
+  background: #fff8dc;
+  border: 1px solid #e6c34b;
+  border-radius: 2px;
+  font-size: 7.5px;
+  padding: 0 4px;
+  color: #7a5f00;
+  font-weight: 700;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+tr.detail .sub-desc {
+  font-size: 8.5px;
+  color: #888;
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* Spacer */
+tr.spacer td { height: 6px; background: #fff; border: none; }
+
+/* ─────────────────────────────────────────────
+   BLOC BAS : paiement gauche / totaux droite
+───────────────────────────────────────────── */
+.bottom-row {
+  padding: 18px 28px 0 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+/* ── Paiement & RS ── */
+.payment-col {
+  flex: 1;
+  max-width: 210px;
+  font-size: 10px;
+  line-height: 1.75;
+  color: #444;
+}
+.payment-col strong {
+  display: block;
+  font-size: 10.5px;
+  color: #111;
+  margin-bottom: 3px;
+}
+.payment-col .iban {
+  font-family: monospace;
+  font-size: 9.5px;
+  color: #333;
+}
+.rs-note {
+  margin-top: 10px;
+  padding: 7px 10px;
+  background: #eef3fb;
+  border-left: 3px solid #4a6fa5;
+  border-radius: 0 3px 3px 0;
+  font-size: 9px;
+  color: #2c4a7c;
+  line-height: 1.6;
+}
+.rs-note strong { color: #1a3560; display:inline; }
+
+/* ── Tableau totaux ── */
+.totals-col { min-width: 260px; }
+
+table.totals {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+table.totals tr td {
+  padding: 4px 8px;
+  color: #333;
+}
+table.totals tr td:last-child {
+  text-align: right;
+  font-family: monospace;
+  color: #111;
+  font-weight: 500;
+}
+table.totals .sep td { border-top: 1px solid #ddd; padding-top: 5px; }
+table.totals .tax-line td { font-size: 10px; color: #555; }
+table.totals .fodec-line td { font-size: 10px; color: #7a5f00; }
+table.totals .timbre-line td { font-size: 10px; color: #555; }
+table.totals .ttc-line td {
+  border-top: 1.5px solid #4a6fa5;
+  font-weight: 700;
+  font-size: 11px;
+  padding-top: 6px;
+  color: #111;
+}
+table.totals .ttc-line td:last-child { color: #222; }
+
+/* NET À PAYER — fond bleu comme OBAT */
+table.totals .net-line {
+  background: #4a6fa5;
+}
+table.totals .net-line td {
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 7px 8px;
+  border-top: none;
+}
+table.totals .net-line td:last-child { color: #fff; font-size: 13px; }
+
+/* RS déduction */
+table.totals .rs-line td { font-size: 10px; color: #2c4a7c; }
+
+/* Note timbre */
+.timbre-note {
+  font-size: 8px;
+  color: #888;
+  display: block;
+  font-weight: 400;
+}
+
+/* ─────────────────────────────────────────────
+   MONTANT EN LETTRES
+───────────────────────────────────────────── */
+.lettres {
+  margin: 14px 28px 0;
+  padding: 7px 12px;
+  background: #f7f8fc;
+  border-left: 3px solid #4a6fa5;
+  font-size: 9.5px;
+  color: #333;
+  font-style: italic;
+}
+.lettres span { font-size: 8px; color: #888; font-style: normal; font-weight: 700; display:block; margin-bottom:2px; text-transform: uppercase; letter-spacing: 0.8px; }
+
+/* ─────────────────────────────────────────────
+   RÉCAP TVA
+───────────────────────────────────────────── */
+.tva-recap {
+  margin: 12px 28px 0;
+}
+.tva-recap-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #888;
+  margin-bottom: 4px;
+}
+table.tva-table {
+  border-collapse: collapse;
+  font-size: 9.5px;
+}
+table.tva-table th {
+  background: #555;
+  color: #fff;
+  padding: 4px 10px;
+  text-align: right;
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+table.tva-table th:first-child { text-align: center; }
+table.tva-table td {
+  padding: 3px 10px;
+  border-bottom: 1px solid #eee;
+  text-align: right;
+  font-family: monospace;
+  color: #333;
+}
+table.tva-table td:first-child {
+  text-align: center;
+  font-weight: 700;
+  color: #4a6fa5;
+  font-family: Arial, sans-serif;
+}
+
+/* ─────────────────────────────────────────────
+   SIGNATURES
+───────────────────────────────────────────── */
+.sigs {
+  margin: 14px 28px 0;
+  display: flex;
+  gap: 20px;
+}
+.sig-box {
+  flex: 1;
+  border: 1px dashed #ccc;
+  border-radius: 3px;
+  padding: 8px 10px;
+  min-height: 56px;
+}
+.sig-box .sig-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #888;
+  font-weight: 700;
+}
+
+/* ─────────────────────────────────────────────
+   FOOTER
+───────────────────────────────────────────── */
+.page-footer {
+  margin-top: 20px;
+  border-top: 1px solid #ddd;
+  padding: 8px 28px;
+  font-size: 8px;
+  color: #888;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  line-height: 1.7;
+}
+.page-footer .right { text-align: right; font-family: monospace; }
+
+/* ─────────────────────────────────────────────
+   ÉDITABLE
+───────────────────────────────────────────── */
+[contenteditable="true"] { outline: none; border-radius: 2px; }
+[contenteditable="true"]:hover { background: rgba(74,111,165,0.06); cursor: text; }
+[contenteditable="true"]:focus { background: rgba(74,111,165,0.12); }
+
+/* ─────────────────────────────────────────────
+   PRINT BAR
+───────────────────────────────────────────── */
+.print-bar {
+  width: 210mm;
+  margin: 0 auto 14px;
+  text-align: center;
+  font-family: Arial, sans-serif;
+}
+.print-bar p { font-size: 10.5px; color: #666; margin-bottom: 8px; }
+.btn-print {
+  background: #4a6fa5; color: #fff; border: none;
+  padding: 8px 22px; border-radius: 4px;
+  font-size: 12px; font-weight: 700; cursor: pointer; margin: 0 5px;
+}
+.btn-print:hover { background: #3a5a8a; }
+.btn-reset {
+  background: #fff; color: #666; border: 1px solid #ccc;
+  padding: 8px 18px; border-radius: 4px;
+  font-size: 12px; cursor: pointer; margin: 0 5px;
+}
+
+@media print {
+  body { background: white; padding: 0; }
+  .print-bar { display: none; }
+  .page { box-shadow: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="print-bar">
+  <p>💡 Tous les champs texte sont éditables — cliquez pour modifier</p>
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+  <button class="btn-reset" onclick="location.reload()">↺ Réinitialiser</button>
+</div>
+
+<div class="page">
+
+  <!-- ══ HEADER : Logo + Client box ══ -->
+  <div class="header-outer">
+    <div class="logo-area">Votre Logo<br>(insertion image)</div>
+    <div class="client-box">
+      <div class="client-name" contenteditable="true">SCATEC Solar Tunisia LLC</div>
+      <div contenteditable="true">Zone Industrielle, Meknassy</div>
+      <div contenteditable="true">Sidi Bouzid — Tunisie</div>
+      <div contenteditable="true">+216 76 000 000</div>
+      <div class="client-mf" contenteditable="true">MF Client : 9876543 / B / P / 000</div>
+    </div>
+  </div>
+
+  <!-- ══ INFO FOURNISSEUR + TITRE FACTURE ══ -->
+  <div class="info-row">
+    <div class="supplier-info">
+      <div class="s-name" contenteditable="true">EnernetPro SARL</div>
+      <div contenteditable="true">Rue de l'Énergie, Cité El Khadra</div>
+      <div contenteditable="true">1003 Tunis — Tunisie</div>
+      <div contenteditable="true">Tél : +216 71 000 000</div>
+      <div contenteditable="true">Email : contact@enernetpro.com</div>
+      <div class="supplier-mf" contenteditable="true">MF : 1234567 / A / M / 000</div>
+    </div>
+    <div class="invoice-title-block">
+      <div class="invoice-title">Facture</div>
+      <div class="invoice-meta-list">
+        N° <strong contenteditable="true">FAC-2025-0042</strong><br>
+        N° Contrat : <span contenteditable="true">SCATEC-TN-2024-IE-07</span><br>
+        En date du : <span contenteditable="true">15/06/2025</span><br>
+        Échéance au : <span contenteditable="true">15/07/2025</span><br>
+        Mode de règlement : <span contenteditable="true">Virement bancaire</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ OBJET ══ -->
+  <div class="objet-section">
+    <span contenteditable="true">Poste SS Meknassy 225/33 kV — Mazzouna II — Mission IE & Fournitures</span>
+  </div>
+
+  <!-- ══ TABLEAU PRINCIPAL ══ -->
+  <div class="table-wrap">
+    <table class="main-table">
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Désignation</th>
+          <th>Unité</th>
+          <th>Qté</th>
+          <th>Prix U. HT</th>
+          <th>Remise</th>
+          <th>TVA</th>
+          <th>Total HT</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- ══════════════════════════════════
+             CATÉGORIE 1 — INGÉNIERIE
+        ══════════════════════════════════ -->
+        <tr class="cat-1">
+          <td contenteditable="true">1</td>
+          <td contenteditable="true">Ingénierie &amp; Supervision</td>
+          <td></td><td></td><td></td><td></td><td></td>
+          <td contenteditable="true">11 200,000 DT</td>
+        </tr>
+
+        <!-- Cat 1.1 -->
+        <tr class="cat-2">
+          <td contenteditable="true">1.1</td>
+          <td contenteditable="true">Mission de supervision chantier — Poste Meknassy SS</td>
+          <td></td><td></td><td></td><td></td><td></td>
+          <td contenteditable="true">8 000,000 DT</td>
+        </tr>
+        <tr class="detail">
+          <td contenteditable="true">1.1.1</td>
+          <td>
+            <div contenteditable="true">Supervision journalière — présence site</div>
+          </td>
+          <td contenteditable="true">Jour</td>
+          <td contenteditable="true">20</td>
+          <td contenteditable="true">300,000</td>
+          <td contenteditable="true">—</td>
+          <td contenteditable="true">19%</td>
+          <td contenteditable="true">6 000,000</td>
+        </tr>
+        <tr class="detail">
+          <td contenteditable="true">1.1.2</td>
+          <td>
+            <div contenteditable="true">Réunions de coordination &amp; comptes-rendus</div>
+            <div class="sub-desc" contenteditable="true">Inclut rédaction CRS, transmettals SMDL, réponses commentaires</div>
+          </td>
+          <td contenteditable="true">Forfait</td>
+          <td contenteditable="true">1</td>
+          <td contenteditable="true">2 000,000</td>
+          <td contenteditable="true">—</td>
+          <td contenteditable="true">19%</td>
+          <td contenteditable="true">2 000,000</td>
+        </tr>
+
+        <!-- Cat 1.2 -->
+        <tr class="cat-2">
+          <td contenteditable="true">1.2</td>
+          <td contenteditable="true">Rapport d'audit technique &amp; rédaction rapport IE</td>
+          <td></td><td></td><td></td><td></td><td></td>
+          <td contenteditable="true">3 200,000 DT</td>
+        </tr>
+        <tr class="detail">
+          <td contenteditable="true">1.2.1</td>
+          <td>
+            <div contenteditable="true">Rapport d'audit technique final (225/33 kV)</div>
+          </td>
+          <td contenteditable="true">Rapport</td>
+          <td contenteditable="true">1</td>
+          <td contenteditable="true">2 000,000</td>
+          <td contenteditable="true">—</td>
+          <td contenteditable="true">19%</td>
+          <td contenteditable="true">2 000,000</td>
+        </tr>
+        <tr class="detail">
+          <td contenteditable="true">1.2.2</td>
+          <td>
+            <div contenteditable="true">Rédaction punch-list &amp; suivi levées de réserves</div>
+          </td>
+          <td contenteditable="true">Forfait</td>
+          <td contenteditable="true">1</td>
+          <td contenteditable="true">1 200,000</td>
+          <td contenteditable="true">—</td>
+          <td contenteditable="true">19%</td>
+          <td contenteditable="true">1 200,000</td>
+        </tr>
+
+        <tr class="spacer"><td colspan="8"></td></tr>
+
+        <!-- ══════════════════════════════════
+             CATÉGORIE 2 — FOURNITURES
+        ══════════════════════════════════ -->
+        <tr class="cat-1">
+          <td contenteditable="true">2</td>
+          <td contenteditable="true">Fournitures électriques</td>
+          <td></td><td></td><td></td><td></td><td></td>
+          <td contenteditable="true">6 000,000 DT</td>
+        </tr>
+
+        <!-- Cat 2.1 -->
+        <tr class="cat-2">
+          <td contenteditable="true">2.1</td>
+          <td contenteditable="true">Câblage &amp; conducteurs BT</td>
+          <td></td><td></td><td></td><td></td><td></td>
+          <td contenteditable="true">6 000,000 DT</td>
+        </tr>
+        <tr class="detail">
+          <td contenteditable="true">2.1.1</td>
+          <td>
+            <div>
+              <span contenteditable="true">Câble BT cuivre 3×25mm² — isolation XLPE</span>
+              <span class="fodec-tag">FODEC 1%</span>
+            </div>
+            <div class="sub-desc" contenteditable="true">Produit industriel soumis au FODEC — base TVA = HT + FODEC</div>
+          </td>
+          <td contenteditable="true">ml</td>
+          <td contenteditable="true">50</td>
+          <td contenteditable="true">80,000</td>
+          <td contenteditable="true">—</td>
+          <td contenteditable="true">19%</td>
+          <td contenteditable="true">4 000,000</td>
+        </tr>
+        <tr class="detail">
+          <td contenteditable="true">2.1.2</td>
+          <td>
+            <div>
+              <span contenteditable="true">Câble commande 12×1,5mm² — écranté</span>
+              <span class="fodec-tag">FODEC 1%</span>
+            </div>
+          </td>
+          <td contenteditable="true">ml</td>
+          <td contenteditable="true">100</td>
+          <td contenteditable="true">20,000</td>
+          <td contenteditable="true">—</td>
+          <td contenteditable="true">19%</td>
+          <td contenteditable="true">2 000,000</td>
+        </tr>
+
+        <tr class="spacer"><td colspan="8"></td></tr>
+
+        <!-- ══════════════════════════════════
+             CATÉGORIE 3 — FRAIS DE MISSION
+        ══════════════════════════════════ -->
+        <tr class="cat-1">
+          <td contenteditable="true">3</td>
+          <td contenteditable="true">Frais de déplacement &amp; mission</td>
+          <td></td><td></td><td></td><td></td><td></td>
+          <td contenteditable="true">400,000 DT</td>
+        </tr>
+        <tr class="detail">
+          <td contenteditable="true">3.1</td>
+          <td>
+            <div contenteditable="true">Déplacement Tunis ↔ Meknassy (forfait)</div>
+          </td>
+          <td contenteditable="true">Forfait</td>
+          <td contenteditable="true">1</td>
+          <td contenteditable="true">400,000</td>
+          <td contenteditable="true">—</td>
+          <td contenteditable="true">7%</td>
+          <td contenteditable="true">400,000</td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div><!-- /table-wrap -->
+
+  <!-- ══ RÉCAP TVA ══ -->
+  <div class="tva-recap">
+    <div class="tva-recap-label">Récapitulatif des taxes (FODEC inclus dans base TVA)</div>
+    <table class="tva-table">
+      <thead>
+        <tr>
+          <th>Taux TVA</th>
+          <th>Base HT</th>
+          <th>FODEC (1%)</th>
+          <th>Base TVA = HT + FODEC</th>
+          <th>Montant TVA</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>19%</td>
+          <td contenteditable="true">17 200,000</td>
+          <td contenteditable="true">60,000</td>
+          <td contenteditable="true">17 260,000</td>
+          <td contenteditable="true">3 279,400</td>
+        </tr>
+        <tr>
+          <td>7%</td>
+          <td contenteditable="true">400,000</td>
+          <td>—</td>
+          <td contenteditable="true">400,000</td>
+          <td contenteditable="true">28,000</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ BAS : Paiement + Totaux ══ -->
+  <div class="bottom-row">
+
+    <!-- Paiement -->
+    <div class="payment-col">
+      <strong>Conditions de paiement</strong>
+      <span contenteditable="true">Paiement à 30 jours date de facture.</span><br><br>
+      <strong>Coordonnées bancaires</strong>
+      Banque : <span contenteditable="true">Banque de Tunisie (BT)</span><br>
+      RIB : <span class="iban" contenteditable="true">08 006 0123456789 12</span><br>
+      IBAN : <span class="iban" contenteditable="true">TN59 08 006 0123456789 12</span><br>
+      BIC : <span class="iban" contenteditable="true">BTUNTNTT</span>
+
+      <div class="rs-note">
+        <strong>Retenue à la source (RS) — 3%</strong><br>
+        Applicable sur honoraires &amp; commissions.<br>
+        Montant RS à déduire : <strong contenteditable="true">512,400 DT</strong><br>
+        Le client remet un certificat RS via la plateforme <strong>TEJ</strong>.
+      </div>
+    </div>
+
+    <!-- Totaux -->
+    <div class="totals-col">
+      <table class="totals">
+        <tr>
+          <td>Total HT</td>
+          <td contenteditable="true">17 600,000 DT</td>
+        </tr>
+        <tr class="fodec-line">
+          <td>FODEC 1% (produits industriels)</td>
+          <td contenteditable="true">60,000 DT</td>
+        </tr>
+        <tr class="sep"><td colspan="2"></td></tr>
+        <tr class="tax-line">
+          <td>TVA 19% (base : 17 260,000 DT)</td>
+          <td contenteditable="true">3 279,400 DT</td>
+        </tr>
+        <tr class="tax-line">
+          <td>TVA 7% (base : 400,000 DT)</td>
+          <td contenteditable="true">28,000 DT</td>
+        </tr>
+        <tr class="timbre-line">
+          <td>
+            Timbre fiscal
+            <span class="timbre-note">Obligatoire si TTC &gt; 1 000 DT (LF 2022)</span>
+          </td>
+          <td contenteditable="true">1,000 DT</td>
+        </tr>
+        <tr class="ttc-line">
+          <td>Total TTC</td>
+          <td contenteditable="true">20 968,400 DT</td>
+        </tr>
+        <tr class="rs-line">
+          <td>(–) Retenue à la source 3%</td>
+          <td contenteditable="true">– 512,400 DT</td>
+        </tr>
+        <tr class="net-line">
+          <td>Net à payer</td>
+          <td contenteditable="true">20 456,000 DT</td>
+        </tr>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ══ MONTANT EN LETTRES ══ -->
+  <div class="lettres">
+    <span>Arrêtée la présente facture à la somme de</span>
+    <span contenteditable="true">Vingt mille quatre cent cinquante-six dinars (20 456,000 DT)</span>
+  </div>
+
+  <!-- ══ SIGNATURES ══ -->
+  <div class="sigs">
+    <div class="sig-box">
+      <div class="sig-label">Cachet &amp; signature du fournisseur</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-label">Bon pour accord — cachet &amp; signature du client</div>
+    </div>
+  </div>
+
+  <!-- ══ PIED DE PAGE ══ -->
+  <div class="page-footer">
+    <div>
+      <span contenteditable="true">EnernetPro SARL</span> —
+      <span contenteditable="true">Rue de l'Énergie, Cité El Khadra, 1003 Tunis</span>
+      — RC : <span contenteditable="true">B 123456 2015</span>
+      — RNE : <span contenteditable="true">J12345678</span><br>
+      MF : <span contenteditable="true">1234567 / A / M / 000</span>
+      — Assujetti à la TVA — Régime réel
+    </div>
+    <div class="right">
+      <span contenteditable="true">FAC-2025-0042</span><br>
+      Page 1 / 1
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<div class="print-bar" style="margin-top:14px;">
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+  <button class="btn-reset" onclick="location.reload()">↺ Réinitialiser</button>
+</div>
+
+</body>
+</html>
