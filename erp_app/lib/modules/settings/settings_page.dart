@@ -20,8 +20,11 @@ import '../org/org_providers.dart';
 import '../org/org_repository.dart';
 import '../sales/payment_term_builder_dialog.dart';
 import '../sales/payment_term_providers.dart';
+import '../../core/prefs/pdf_layout_prefs.dart';
+import '../../data/models/custom_field.dart';
+import '../../data/providers/custom_fields_provider.dart';
 
-enum _Tab { theme, orgInfo, quoteInvoice, exportImport, deleteOrg }
+enum _Tab { theme, orgInfo, quoteInvoice, pdfLayout, exportImport, deleteOrg }
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -72,6 +75,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         onTap: () => setState(() => _tab = _Tab.quoteInvoice),
                       ),
                       _NavItem(
+                        label: 'PDF Layout',
+                        icon: Icons.picture_as_pdf_outlined,
+                        selected: _tab == _Tab.pdfLayout,
+                        onTap: () => setState(() => _tab = _Tab.pdfLayout),
+                      ),
+                      _NavItem(
                         label: 'Export / Import',
                         icon: Icons.import_export_outlined,
                         selected: _tab == _Tab.exportImport,
@@ -93,6 +102,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   _Tab.theme        => const _ThemeTab(),
                   _Tab.orgInfo      => const _OrgInfoTab(),
                   _Tab.quoteInvoice => const _QuoteInvoiceTab(),
+                  _Tab.pdfLayout    => const _PdfLayoutTab(),
                   _Tab.exportImport => const _ExportImportTab(),
                   _Tab.deleteOrg    => const _DeleteOrgTab(),
                 },
@@ -1210,8 +1220,8 @@ class _LogoPickerRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
-          width: 48,
           height: 48,
+          constraints: const BoxConstraints(maxWidth: 140, minWidth: 48),
           decoration: BoxDecoration(
             color: ext.surfaceRaised,
             borderRadius: BorderRadius.circular(LinearRadii.sm),
@@ -1221,14 +1231,21 @@ class _LogoPickerRow extends StatelessWidget {
           child: logoUrl != null
               ? Image.network(
                   logoUrl!,
+                  height: 48,
                   fit: BoxFit.contain,
-                  errorBuilder: (ctx, e, _) => Icon(
-                    Icons.broken_image_outlined,
-                    size: 20,
-                    color: ext.textMuted,
+                  errorBuilder: (ctx, e, _) => SizedBox(
+                    width: 48,
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      size: 20,
+                      color: ext.textMuted,
+                    ),
                   ),
                 )
-              : Icon(Icons.image_outlined, size: 20, color: ext.textMuted),
+              : SizedBox(
+                  width: 48,
+                  child: Icon(Icons.image_outlined, size: 20, color: ext.textMuted),
+                ),
         ),
         const SizedBox(width: LinearSpacing.sm),
         if (uploading)
@@ -1934,6 +1951,301 @@ class _DeleteOrgTabState extends ConsumerState<_DeleteOrgTab> {
   }
 }
 
+// ── PDF Layout tab ────────────────────────────────────────────────────────────
+
+class _PdfLayoutTab extends ConsumerStatefulWidget {
+  const _PdfLayoutTab();
+
+  @override
+  ConsumerState<_PdfLayoutTab> createState() => _PdfLayoutTabState();
+}
+
+class _PdfLayoutTabState extends ConsumerState<_PdfLayoutTab> {
+  // Client info
+  bool _showClientAddress    = true;
+  bool _showClientPhone      = true;
+  bool _showClientTaxId      = true;
+  // Document meta
+  bool _showContractNumber   = true;
+  bool _showValidityDate     = true;
+  bool _showPaymentMode      = true;
+  // Table columns
+  bool _showUnitColumn       = true;
+  bool _showDiscountColumn   = true;
+  // Bottom section
+  bool _showPaymentTerms     = true;
+  bool _showBankDetails      = true;
+  bool _showSignatures       = true;
+  // Other
+  bool _showTvaRecap         = true;
+  bool _showMontantEnLettres = true;
+
+  bool _loaded = false;
+  List<PdfCustomField> _customFields = [];
+
+  void _initFrom(PdfLayoutPrefs p) {
+    _showClientAddress    = p.showClientAddress;
+    _showClientPhone      = p.showClientPhone;
+    _showClientTaxId      = p.showClientTaxId;
+    _showContractNumber   = p.showContractNumber;
+    _showValidityDate     = p.showValidityDate;
+    _showPaymentMode      = p.showPaymentMode;
+    _showUnitColumn       = p.showUnitColumn;
+    _showDiscountColumn   = p.showDiscountColumn;
+    _showPaymentTerms     = p.showPaymentTerms;
+    _showBankDetails      = p.showBankDetails;
+    _showSignatures       = p.showSignatures;
+    _showTvaRecap         = p.showTvaRecap;
+    _showMontantEnLettres = p.showMontantEnLettres;
+    _customFields         = List.of(p.customFields);
+    _loaded = true;
+  }
+
+  Future<void> _save(String key, bool value) async {
+    await savePdfLayoutPref(key, value);
+    ref.invalidate(pdfLayoutPrefsProvider);
+  }
+
+  Future<void> _toggleCustomField(CustomFieldDef def, bool checked) async {
+    final updated = checked
+        ? [..._customFields, PdfCustomField(key: def.fieldKey, label: def.label)]
+        : _customFields.where((f) => f.key != def.fieldKey).toList();
+    setState(() => _customFields = updated);
+    await savePdfCustomFields(updated);
+    ref.invalidate(pdfLayoutPrefsProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ext        = context.linearExt;
+    final prefsAsync = ref.watch(pdfLayoutPrefsProvider);
+
+    return prefsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+          child: Text('Error: $e', style: TextStyle(color: ext.textMuted))),
+      data: (prefs) {
+        if (!_loaded) _initFrom(prefs);
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(LinearSpacing.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('PDF Layout', style: context.text.titleMedium),
+              const SizedBox(height: 4),
+              Text(
+                'Choose what to show on exported quote and invoice PDFs.',
+                style: context.text.bodySmall?.copyWith(color: ext.textMuted),
+              ),
+              const SizedBox(height: LinearSpacing.md),
+
+              // ── Client info ─────────────────────────────────────────────────
+              Text('Client information',
+                  style: context.text.titleSmall?.copyWith(color: ext.textSecondary)),
+              const SizedBox(height: LinearSpacing.sm),
+              _SettingsCard(children: [
+                _TaxToggleRow(
+                  label: 'Address',
+                  description: 'Show the client\'s address below their name.',
+                  value: _showClientAddress,
+                  onChanged: (v) { setState(() => _showClientAddress = v); _save(kPdfShowClientAddress, v); },
+                ),
+                _TaxToggleRow(
+                  label: 'Phone',
+                  description: 'Show the client\'s phone number.',
+                  value: _showClientPhone,
+                  onChanged: (v) { setState(() => _showClientPhone = v); _save(kPdfShowClientPhone, v); },
+                ),
+                _TaxToggleRow(
+                  label: 'Tax ID (MF)',
+                  description: 'Show the client\'s VAT / tax identifier.',
+                  value: _showClientTaxId,
+                  onChanged: (v) { setState(() => _showClientTaxId = v); _save(kPdfShowClientTaxId, v); },
+                ),
+              ]),
+
+              const SizedBox(height: LinearSpacing.md),
+
+              // ── Document meta ───────────────────────────────────────────────
+              Text('Document header',
+                  style: context.text.titleSmall?.copyWith(color: ext.textSecondary)),
+              const SizedBox(height: LinearSpacing.sm),
+              _SettingsCard(children: [
+                _TaxToggleRow(
+                  label: 'Contract number',
+                  description: 'Show N° Contrat when set on the document.',
+                  value: _showContractNumber,
+                  onChanged: (v) { setState(() => _showContractNumber = v); _save(kPdfShowContractNumber, v); },
+                ),
+                _TaxToggleRow(
+                  label: 'Validity / due date',
+                  description: 'Show validity date (quotes) or échéance (invoices).',
+                  value: _showValidityDate,
+                  onChanged: (v) { setState(() => _showValidityDate = v); _save(kPdfShowValidityDate, v); },
+                ),
+                _TaxToggleRow(
+                  label: 'Payment mode',
+                  description: 'Show payment mode text in the document header.',
+                  value: _showPaymentMode,
+                  onChanged: (v) { setState(() => _showPaymentMode = v); _save(kPdfShowPaymentMode, v); },
+                ),
+              ]),
+
+              const SizedBox(height: LinearSpacing.md),
+
+              // ── Table columns ───────────────────────────────────────────────
+              Text('Line table columns',
+                  style: context.text.titleSmall?.copyWith(color: ext.textSecondary)),
+              const SizedBox(height: LinearSpacing.sm),
+              _SettingsCard(children: [
+                _TaxToggleRow(
+                  label: 'Unit (Unité)',
+                  description: 'Show the unit of measure column.',
+                  value: _showUnitColumn,
+                  onChanged: (v) { setState(() => _showUnitColumn = v); _save(kPdfShowUnitColumn, v); },
+                ),
+                _TaxToggleRow(
+                  label: 'Discount (Remise)',
+                  description: 'Show the discount percentage column.',
+                  value: _showDiscountColumn,
+                  onChanged: (v) { setState(() => _showDiscountColumn = v); _save(kPdfShowDiscountColumn, v); },
+                ),
+              ]),
+
+              const SizedBox(height: LinearSpacing.md),
+
+              // ── Bottom section ──────────────────────────────────────────────
+              Text('Bottom section',
+                  style: context.text.titleSmall?.copyWith(color: ext.textSecondary)),
+              const SizedBox(height: LinearSpacing.sm),
+              _SettingsCard(children: [
+                _TaxToggleRow(
+                  label: 'Payment terms',
+                  description: 'Show the payment schedule / terms box.',
+                  value: _showPaymentTerms,
+                  onChanged: (v) { setState(() => _showPaymentTerms = v); _save(kPdfShowPaymentTerms, v); },
+                ),
+                _TaxToggleRow(
+                  label: 'Bank details',
+                  description: 'Show coordonnées bancaires (RIB, IBAN, BIC).',
+                  value: _showBankDetails,
+                  onChanged: (v) { setState(() => _showBankDetails = v); _save(kPdfShowBankDetails, v); },
+                ),
+                _TaxToggleRow(
+                  label: 'Signature boxes',
+                  description: 'Show supplier and client signature areas.',
+                  value: _showSignatures,
+                  onChanged: (v) { setState(() => _showSignatures = v); _save(kPdfShowSignatures, v); },
+                ),
+              ]),
+
+              const SizedBox(height: LinearSpacing.md),
+
+              // ── Other ───────────────────────────────────────────────────────
+              Text('Other',
+                  style: context.text.titleSmall?.copyWith(color: ext.textSecondary)),
+              const SizedBox(height: LinearSpacing.sm),
+              _SettingsCard(children: [
+                _TaxToggleRow(
+                  label: 'TVA recap table',
+                  description: 'Show the tax breakdown table below the line items.',
+                  value: _showTvaRecap,
+                  onChanged: (v) { setState(() => _showTvaRecap = v); _save(kPdfShowTvaRecap, v); },
+                ),
+                _TaxToggleRow(
+                  label: 'Amount in words',
+                  description: 'Show "Arrêtée la présente à la somme de…" in French.',
+                  value: _showMontantEnLettres,
+                  onChanged: (v) { setState(() => _showMontantEnLettres = v); _save(kPdfShowMontantEnLettres, v); },
+                ),
+              ]),
+
+              const SizedBox(height: LinearSpacing.md),
+
+              // ── Custom fields ────────────────────────────────────────────────
+              Text('Custom fields in client block',
+                  style: context.text.titleSmall?.copyWith(color: ext.textSecondary)),
+              const SizedBox(height: 4),
+              Text(
+                'Select CRM custom fields to show in the DESTINATAIRE section of PDFs.',
+                style: context.text.bodySmall?.copyWith(color: ext.textMuted),
+              ),
+              const SizedBox(height: LinearSpacing.sm),
+              _PdfCustomFieldsSelector(
+                selected:       _customFields,
+                onToggle:       _toggleCustomField,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── PDF custom-field selector ─────────────────────────────────────────────────
+
+class _PdfCustomFieldsSelector extends ConsumerWidget {
+  const _PdfCustomFieldsSelector({
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final List<PdfCustomField> selected;
+  final void Function(CustomFieldDef def, bool checked) onToggle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ext = context.linearExt;
+    final contactDefs  = ref.watch(customFieldDefsProvider('contact'));
+    final companyDefs  = ref.watch(customFieldDefsProvider('company'));
+
+    final allDefs = [
+      ...contactDefs.value ?? [],
+      ...companyDefs.value ?? [],
+    ];
+
+    if (allDefs.isEmpty) {
+      return Text(
+        'No custom fields defined yet. Add fields in Contacts or Companies.',
+        style: context.text.bodySmall?.copyWith(color: ext.textMuted),
+      );
+    }
+
+    final selectedKeys = selected.map((f) => f.key).toSet();
+
+    return _SettingsCard(
+      children: allDefs.map((def) {
+        final isContact = def.entityType == 'contact';
+        return Row(
+          children: [
+            Checkbox(
+              value:    selectedKeys.contains(def.fieldKey),
+              onChanged: (v) => onToggle(def, v ?? false),
+            ),
+            const SizedBox(width: LinearSpacing.xs),
+            Expanded(child: Text(def.label, style: context.text.bodyMedium)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color:        (isContact ? const Color(0xFF3A87C2) : const Color(0xFF9D5BD2)).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                isContact ? 'Contact' : 'Company',
+                style: context.text.labelSmall?.copyWith(
+                  color: isContact ? const Color(0xFF3A87C2) : const Color(0xFF9D5BD2),
+                ),
+              ),
+            ),
+          ],
+        );
+      }).toList(),
+    );
+  }
+}
+
 // ── Export / Import tab ───────────────────────────────────────────────────────
 
 class _ExportImportTab extends ConsumerStatefulWidget {
@@ -2052,75 +2364,85 @@ class _ExportImportTabState extends ConsumerState<_ExportImportTab> {
                 ),
                 const SizedBox(height: LinearSpacing.sm),
 
-                _SettingsCard(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: LinearSpacing.md,
-                        vertical: LinearSpacing.base,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _rootCtrl,
-                              readOnly:   true,
-                              onChanged:  (_) => _markDirty(),
-                              decoration: InputDecoration(
-                                hintText: r'e.g. C:\Users\You\Documents\ERP',
-                                isDense:  true,
-                                prefixIcon: const Icon(Icons.folder_outlined, size: 16),
-                                prefixIconConstraints:
-                                    const BoxConstraints(minWidth: 36, minHeight: 36),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: LinearSpacing.sm),
-                          OutlinedButton.icon(
-                            onPressed: _pickFolder,
-                            icon: const Icon(Icons.drive_folder_upload_outlined, size: 14),
-                            label: const Text('Browse…'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              textStyle: context.text.labelMedium,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Subfolder preview
-                    if (preview != null)
-                      Container(
-                        decoration: BoxDecoration(
-                          color: ext.surfaceRaised,
-                          borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(LinearRadii.md)),
-                        ),
+                Container(
+                  decoration: BoxDecoration(
+                    color:        ext.surfaceBase,
+                    borderRadius: BorderRadius.circular(LinearRadii.md),
+                    border:       Border.all(color: ext.borderSubtle),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── Path field + Browse button (same line) ─────────────
+                      Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: LinearSpacing.md,
-                          vertical: LinearSpacing.sm,
+                          vertical:   LinearSpacing.base,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            _SubfolderLine(
-                              icon:  Icons.description_outlined,
-                              label: 'Quotes',
-                              path:  preview.quotesFolder!,
-                              ext:   ext,
+                            const Icon(Icons.folder_outlined, size: 16),
+                            const SizedBox(width: LinearSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                _rootCtrl.text.isEmpty
+                                    ? r'e.g. C:\Users\You\Documents\ERP'
+                                    : _rootCtrl.text,
+                                style: context.text.bodySmall?.copyWith(
+                                  color: _rootCtrl.text.isEmpty
+                                      ? ext.textMuted
+                                      : ext.textPrimary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            const SizedBox(height: 4),
-                            _SubfolderLine(
-                              icon:  Icons.receipt_outlined,
-                              label: 'Invoices',
-                              path:  preview.invoicesFolder!,
-                              ext:   ext,
+                            const SizedBox(width: LinearSpacing.sm),
+                            OutlinedButton.icon(
+                              onPressed: _pickFolder,
+                              icon: const Icon(
+                                  Icons.drive_folder_upload_outlined, size: 14),
+                              label: const Text('Browse…'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                textStyle: context.text.labelMedium,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                  ],
+                      // ── Subfolder preview ──────────────────────────────────
+                      if (preview != null) ...[
+                        Divider(height: 1, color: ext.borderSubtle),
+                        Container(
+                          color: ext.surfaceRaised,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: LinearSpacing.md,
+                            vertical:   LinearSpacing.sm,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _SubfolderLine(
+                                icon:  Icons.description_outlined,
+                                label: 'Quotes',
+                                path:  preview.quotesFolder!,
+                                ext:   ext,
+                              ),
+                              const SizedBox(height: 4),
+                              _SubfolderLine(
+                                icon:  Icons.receipt_outlined,
+                                label: 'Invoices',
+                                path:  preview.invoicesFolder!,
+                                ext:   ext,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
 
                 // ── Save bar ─────────────────────────────────────────────────

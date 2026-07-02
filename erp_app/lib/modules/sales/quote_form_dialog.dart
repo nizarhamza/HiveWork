@@ -154,11 +154,13 @@ class _QuoteFormDialogState extends ConsumerState<_QuoteFormDialog> {
           : null);
 
   // Client is now selected from contacts/companies, not a free-text field
-  late String? _clientId      = widget.initial.clientId;
-  late String? _clientName    = widget.initial.clientName;
-  late String? _clientAddress = widget.initial.clientAddress;
-  late String? _clientPhone   = widget.initial.clientPhone;
-  late String? _clientTaxId   = widget.initial.clientTaxId;
+  late String? _companyId     = widget.initial.companyId;
+  late String? _contactId     = widget.initial.contactId;
+  late String? _clientName          = widget.initial.clientName;
+  late String? _clientAddress       = widget.initial.clientAddress;
+  late String? _clientPhone         = widget.initial.clientPhone;
+  late String? _clientTaxId         = widget.initial.clientTaxId;
+  late Map<String, dynamic>? _clientCustomFields = widget.initial.clientCustomFields;
 
   late final _notesCtrl = TextEditingController(text: widget.initial.notes ?? '');
   late final List<_LineState> _lines = widget.initial.lines.isNotEmpty
@@ -247,7 +249,7 @@ class _QuoteFormDialogState extends ConsumerState<_QuoteFormDialog> {
     final counters = <int>[];
     for (final line in _lines) {
       final d = line.level;
-      while (counters.length <= d) counters.add(0);
+      while (counters.length <= d) { counters.add(0); }
       if (counters.length > d + 1) counters.removeRange(d + 1, counters.length);
       counters[d]++;
       numbers.add(counters.join('.'));
@@ -338,11 +340,13 @@ class _QuoteFormDialogState extends ConsumerState<_QuoteFormDialog> {
     Navigator.pop(
       context,
       widget.initial.copyWith(
-        clientId:      _clientId,
-        clientName:    _clientName,
-        clientAddress: _clientAddress,
-        clientPhone:   _clientPhone,
-        clientTaxId:   _clientTaxId,
+        companyId:          _companyId,
+        contactId:          _contactId,
+        clientName:         _clientName,
+        clientAddress:      _clientAddress,
+        clientPhone:        _clientPhone,
+        clientTaxId:        _clientTaxId,
+        clientCustomFields: _clientCustomFields,
         lines:      lines,
         status:     _status,
         currency:   _effectiveCurrency,
@@ -426,21 +430,30 @@ class _QuoteFormDialogState extends ConsumerState<_QuoteFormDialog> {
           const _SectionLabel('Client'),
           const SizedBox(height: LinearSpacing.xs),
           _ClientPicker(
-            clientId:   _clientId,
+            clientId:   _companyId ?? _contactId,
             clientName: _clientName,
             onSelect:   (c) => setState(() {
-              _clientId      = c.id;
-              _clientName    = c.name;
-              _clientAddress = c.address;
-              _clientPhone   = c.phone;
-              _clientTaxId   = c.taxId;
+              if (c is _CompanyClient) {
+                _companyId = c.id;
+                _contactId = null;
+              } else {
+                _contactId = c.id;
+                _companyId = null;
+              }
+              _clientName          = c.name;
+              _clientAddress       = c.address;
+              _clientPhone         = c.phone;
+              _clientTaxId         = c.taxId;
+              _clientCustomFields  = c.customFields.isEmpty ? null : c.customFields;
             }),
             onClear: () => setState(() {
-              _clientId      = null;
-              _clientName    = null;
-              _clientAddress = null;
-              _clientPhone   = null;
-              _clientTaxId   = null;
+              _companyId          = null;
+              _contactId          = null;
+              _clientName         = null;
+              _clientAddress      = null;
+              _clientPhone        = null;
+              _clientTaxId        = null;
+              _clientCustomFields = null;
             }),
           ),
           const SizedBox(height: LinearSpacing.lg),
@@ -558,34 +571,37 @@ sealed class _Client {
   String? get address;
   String? get phone;
   String? get taxId;
+  Map<String, dynamic> get customFields;
 }
 
 class _ContactClient extends _Client {
   const _ContactClient(this.contact);
   final Contact contact;
-  @override String get id          => contact.id;
-  @override String get name        => contact.fullName;
-  @override String get subtitle    => contact.email ?? contact.companyName ?? '';
-  @override String get type        => 'Contact';
-  @override Color  get avatarColor => contact.avatarColor;
-  @override String get initials    => contact.initials;
-  @override String? get address    => null;
-  @override String? get phone      => contact.phone;
-  @override String? get taxId      => null;
+  @override String get id                          => contact.id;
+  @override String get name                        => contact.fullName;
+  @override String get subtitle                    => contact.email ?? contact.companyName ?? '';
+  @override String get type                        => 'Contact';
+  @override Color  get avatarColor                 => contact.avatarColor;
+  @override String get initials                    => contact.initials;
+  @override String? get address                    => null;
+  @override String? get phone                      => contact.phone;
+  @override String? get taxId                      => null;
+  @override Map<String, dynamic> get customFields  => contact.customFields;
 }
 
 class _CompanyClient extends _Client {
   const _CompanyClient(this.company);
   final Company company;
-  @override String? get address    => company.address;
-  @override String? get phone      => company.phone;
-  @override String? get taxId      => company.taxId;
-  @override String get id          => company.id;
-  @override String get name        => company.name;
-  @override String get subtitle    => company.industry ?? '';
-  @override String get type        => 'Company';
-  @override Color  get avatarColor => company.avatarColor;
-  @override String get initials    => company.initials;
+  @override String? get address                    => company.address;
+  @override String? get phone                      => company.phone;
+  @override String? get taxId                      => company.taxId;
+  @override String get id                          => company.id;
+  @override String get name                        => company.name;
+  @override String get subtitle                    => company.industry ?? '';
+  @override String get type                        => 'Company';
+  @override Color  get avatarColor                 => company.avatarColor;
+  @override String get initials                    => company.initials;
+  @override Map<String, dynamic> get customFields  => company.customFields;
 }
 
 // ── Client picker ──────────────────────────────────────────────────────────────
@@ -2144,31 +2160,3 @@ class _TotalRow extends StatelessWidget {
   }
 }
 
-// ── Currency chip ──────────────────────────────────────────────────────────────
-
-class _CurrencyChip extends StatelessWidget {
-  const _CurrencyChip(this.currency);
-  final String currency;
-
-  @override
-  Widget build(BuildContext context) {
-    final ext = context.linearExt;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color:        ext.overlayActive,
-        borderRadius: BorderRadius.circular(LinearRadii.pill),
-        border:       Border.all(color: ext.borderBase),
-      ),
-      child: Text(
-        currency.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color:         ext.textMuted,
-          fontSize:      9,
-          letterSpacing: 0.5,
-          fontWeight:    FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}

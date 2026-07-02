@@ -1,6 +1,6 @@
 {
-    "name": "ERP",
-    "short_name": "ERP",
+    "name": "HiveWork",
+    "short_name": "HiveWork",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0D0D0D",

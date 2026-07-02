@@ -108,8 +108,8 @@ This is the actual payoff for sequencing Inventory before Invoicing.
 
 ## Command palette & nav
 
-- [ ] Register "New product", "New supplier", "Go to Inventory" in the command palette once it
-      exists (Phase 0 item, currently unbuilt — blocked on command palette)
+- [ ] Register "New product", "New supplier", "Go to Inventory" in the command palette
+      (command palette now built — no longer blocked)
 
 **Definition of done:** Products and Suppliers are fully real (Supabase-backed CRUD, RLS-scoped to
 org), visible in the sidebar as their own module, stock quantity is viewable/adjustable with a

@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/prefs/view_prefs_service.dart';
 import '../../core/utils/formatting.dart';
 import '../../data/models/quote.dart';
 import '../../data/models/quote_line_tree.dart';
+import '../../data/providers/invoices_provider.dart';
 import '../../data/providers/quotes_provider.dart';
 import '../../shell/widgets/resizable_pane_layout.dart';
 import '../../theme/linear_tokens.dart';
@@ -38,9 +40,11 @@ class QuoteDetailPane extends ConsumerStatefulWidget {
 }
 
 class _QuoteDetailPaneState extends ConsumerState<QuoteDetailPane> {
-  double _propsWidth = _kPropsWidth;
-  bool   _exporting  = false;
-  bool   _saving     = false;
+  double _propsWidth  = _kPropsWidth;
+  bool   _exporting        = false;
+  bool   _saving           = false;
+  bool   _converting       = false;
+  bool   _updatingStatus   = false;
   Timer? _savePropsTimer;
 
   @override
@@ -94,6 +98,51 @@ class _QuoteDetailPaneState extends ConsumerState<QuoteDetailPane> {
     }
   }
 
+  Future<void> _updateStatus(QuoteStatus status) async {
+    setState(() => _updatingStatus = true);
+    try {
+      await ref.read(quotesProvider.notifier).updateStatus(
+        widget.item.quote.id,
+        status,
+      );
+    } catch (e) {
+      if (mounted) {
+        ref.read(toastProvider.notifier).show(
+          'Failed to update status: $e',
+          variant: ToastVariant.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _updatingStatus = false);
+    }
+  }
+
+  Future<void> _convertToInvoice() async {
+    final id = widget.item.quote.id;
+    setState(() => _converting = true);
+    try {
+      final quoteWithLines = await ref.read(quoteWithLinesProvider(id).future);
+      if (!mounted) return;
+      final quote = quoteWithLines ?? widget.item.quote;
+      final newInvoice = await ref.read(invoicesProvider.notifier).convertFromQuote(quote);
+      if (!mounted) return;
+      // Refresh the quotes list so the converted status is reflected immediately.
+      ref.invalidate(quotesProvider);
+      if (newInvoice != null && context.mounted) {
+        context.go('/invoicing/invoices?invoice=${newInvoice.invoice.id}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ref.read(toastProvider.notifier).show(
+          'Conversion failed: $e',
+          variant: ToastVariant.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _converting = false);
+    }
+  }
+
   Future<void> _exportPdf() async {
     final id = widget.item.quote.id;
     setState(() => _exporting = true);
@@ -133,13 +182,17 @@ class _QuoteDetailPaneState extends ConsumerState<QuoteDetailPane> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _Header(
-          item:      item,
-          onClose:   widget.onClose,
-          onEdit:    _saving    ? null : _edit,
-          onDelete:  _saving    ? null : _delete,
-          onExport:  _exporting ? null : _exportPdf,
-          exporting: _exporting,
-          saving:    _saving,
+          item:            item,
+          onClose:         widget.onClose,
+          onEdit:          _saving           ? null : _edit,
+          onDelete:        _saving           ? null : _delete,
+          onExport:        _exporting        ? null : _exportPdf,
+          onConvert:       _converting       ? null : _convertToInvoice,
+          onUpdateStatus:  _updatingStatus   ? null : _updateStatus,
+          exporting:       _exporting,
+          saving:          _saving,
+          converting:      _converting,
+          updatingStatus:  _updatingStatus,
         ),
         const Divider(height: 1),
         Expanded(
@@ -204,18 +257,26 @@ class _Header extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onExport,
+    required this.onConvert,
+    required this.onUpdateStatus,
     required this.exporting,
     required this.saving,
+    required this.converting,
+    required this.updatingStatus,
     this.onClose,
   });
 
-  final QuoteWithClient item;
-  final VoidCallback?   onClose;
-  final VoidCallback?   onEdit;
-  final VoidCallback?   onDelete;
-  final VoidCallback?   onExport;
-  final bool            exporting;
-  final bool            saving;
+  final QuoteWithClient                        item;
+  final VoidCallback?                          onClose;
+  final VoidCallback?                          onEdit;
+  final VoidCallback?                          onDelete;
+  final VoidCallback?                          onExport;
+  final VoidCallback?                          onConvert;
+  final void Function(QuoteStatus)?            onUpdateStatus;
+  final bool                                   exporting;
+  final bool                                   saving;
+  final bool                                   converting;
+  final bool                                   updatingStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -257,6 +318,44 @@ class _Header extends StatelessWidget {
           ),
           _StatusChip(status: item.quote.status),
           const SizedBox(width: LinearSpacing.sm),
+          // Contextual status actions
+          if (item.quote.status == QuoteStatus.draft) ...[
+            AppButton(
+              label:     'Mark Sent',
+              variant:   AppButtonVariant.outlined,
+              size:      AppButtonSize.sm,
+              icon:      Icons.send_outlined,
+              loading:   updatingStatus,
+              onPressed: onUpdateStatus != null
+                  ? () => onUpdateStatus!(QuoteStatus.sent)
+                  : null,
+            ),
+            const SizedBox(width: LinearSpacing.xs),
+          ],
+          if (item.quote.status == QuoteStatus.sent) ...[
+            AppButton(
+              label:     'Approve',
+              variant:   AppButtonVariant.outlined,
+              size:      AppButtonSize.sm,
+              icon:      Icons.check_circle_outline,
+              loading:   updatingStatus,
+              onPressed: onUpdateStatus != null
+                  ? () => onUpdateStatus!(QuoteStatus.approved)
+                  : null,
+            ),
+            const SizedBox(width: LinearSpacing.xs),
+            AppButton(
+              label:     'Reject',
+              variant:   AppButtonVariant.outlined,
+              size:      AppButtonSize.sm,
+              icon:      Icons.cancel_outlined,
+              loading:   updatingStatus,
+              onPressed: onUpdateStatus != null
+                  ? () => onUpdateStatus!(QuoteStatus.rejected)
+                  : null,
+            ),
+            const SizedBox(width: LinearSpacing.xs),
+          ],
           AppButton(
             label:     'Edit',
             variant:   AppButtonVariant.outlined,
@@ -274,6 +373,17 @@ class _Header extends StatelessWidget {
             loading:   exporting,
             onPressed: onExport,
           ),
+          if (item.quote.status == QuoteStatus.approved) ...[
+            const SizedBox(width: LinearSpacing.xs),
+            AppButton(
+              label:     'Convert to Invoice',
+              variant:   AppButtonVariant.filled,
+              size:      AppButtonSize.sm,
+              icon:      Icons.receipt_long_outlined,
+              loading:   converting,
+              onPressed: onConvert,
+            ),
+          ],
           const SizedBox(width: LinearSpacing.xs),
           AppIconButton(
             icon:      Icons.delete_outline,

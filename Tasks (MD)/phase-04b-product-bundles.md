@@ -2,7 +2,7 @@
 
 > Pre-defined groups of **product slots** (category + qty) — not locked to a specific product — that expand into quote lines requiring the user to resolve each slot to a brand + model at quote time. Analogous to "kits" in classic ERP but brand-agnostic so the same bundle works regardless of supplier or brand chosen for a job.
 
-**Status:** Planned — sequenced after Phase 4a (Inventory) because bundles reference the `products` table.
+**Status:** In progress — data layer + BundlesPage + picker dialog built; quote insertion/resolution flow and QA still TODO.
 
 ---
 
@@ -207,50 +207,44 @@ navItems: [
 
 ---
 
+## Implementation note — approach changed
+
+The original plan used category-only slots (brand-agnostic) with a 2-step resolution picker at quote time. The actual implementation is simpler and better: bundles store **specific product_id** (or child bundle) lines, and `flattenBundle()` recursively expands to leaf products at insertion time. Lines land in the quote already fully resolved (label, qty, unit_price, tax_rate, unit, product_id all filled). No unresolved-line concept needed.
+
 ## Checklist
 
 ### Schema & backend
-- [ ] Write migration: `product_bundles` + `product_bundle_lines` (category-slot schema above) + RLS
-- [ ] Apply migration to Supabase
-- [ ] Add `brand` and `model` columns to `quote_lines` (needed to store resolution snapshot)
-- [ ] Add `is_resolved` boolean (default false) to `quote_lines` for unresolved-line guard
+- [x] Migration: `product_bundles` + `product_bundle_lines` + RLS applied
+- [x] `product_bundles`: name, description, category, price_override, sku, is_active, org_id
+- [x] `product_bundle_lines`: product_id (FK) OR child_bundle_id (FK), quantity, sort_order
+- [x] Cycle detection: DB function `bundle_would_create_cycle` + Flutter guard in repository
 
 ### Riverpod layer
-- [ ] `ProductBundle`, `BundleWithLines`, `BundleLine` (category + label + qty) Dart models
-- [ ] `bundlesProvider` (list, org-scoped)
-- [ ] `bundleDetailProvider(id)`
-- [ ] `bundleMutationProvider` (create / update / delete)
-- [ ] `productsByCategoryProvider(category)` — distinct brand list + model list per brand, used by the resolution picker in quotes
+- [x] `ProductBundle`, `ProductBundleLine`, `ProductBundleWithLines`, `FlatBundleLine` models
+- [x] `bundlesProvider` (list, org-scoped, with live CRUD mutations)
+- [x] `ProductBundleRepository.fetchWithLines(id)` — detail with resolved joins
+- [x] `ProductBundleRepository.flattenBundle(id, parentQty)` — recursive expansion (max depth 3)
+- [x] `ProductBundleRepository.replaceLines(bundleId, lines)` — replace-all strategy
+- [x] Soft-delete (`softDelete`)
 
 ### Bundles page (Inventory module)
-- [ ] Add `bundles` nav item to `InventoryModule`
-- [ ] `BundlesPage` — list with LinearViewHeader, search, active filter
-- [ ] `BundleDetailPane` (right pane) — name, description, slot editor
-- [ ] Slot editor: **+ Add slot** → category autocomplete (distinct values from products), optional label, qty, drag-reorder, delete row
-- [ ] Save / cancel / soft-delete
+- [x] `bundles` nav item in `InventoryModule`
+- [x] `BundlesPage` — list with LinearViewHeader, search, active-only filter
+- [x] `_BundleFormDialog` — create/edit dialog: name, description, category, price override, active toggle
+- [x] Slot editor: Add product (via `showProductPicker`), Add by category (all products in category), Add child bundle
+- [x] Drag-to-reorder lines (`ReorderableListView`)
+- [x] Save / cancel / soft-delete (with `AppDialog.confirm`)
 
 ### Quote integration
-- [ ] Add Bundles tab to `LinkCatalogModal` (alongside Products)
-- [ ] Qty prompt on bundle select → `insertBundle()` writes N unresolved `QuoteLine`s with `isResolved = false`
-- [ ] Unresolved lines show warning badge + `"[category] — choose brand / model"` placeholder text
-- [ ] Tapping unresolved line opens 2-step picker: Brand dropdown → Model dropdown (both filtered to line's category)
-- [ ] On model confirm: fill `productId`, `brand`, `model`, `unitPrice`, `taxRate`, `unit`; set `isResolved = true`
-- [ ] PDF export guard: block if any line has `isResolved = false`; show banner with count + jump-to link
-- [ ] Wire same flow to `InvoiceDetailPage`
+- [x] `showBundlePicker` dialog — search, select, qty prompt, "Insert" button
+- [x] `_insertBundle()` in `quote_form_dialog.dart` — calls `flattenBundle`, writes level-0 header + level-1 product lines (fully resolved: label, qty, unitPrice, taxRate, unit, productId)
+- [x] "Insert bundle" button in quote table footer
+- [ ] Wire same `_insertBundle` pattern to `InvoiceDetailPage` when Invoicing module is built (Phase 4 main)
 
 ### QA
-- [ ] Create bundle with 3 slots (different categories), insert into quote — verify 3 unresolved lines appear
-- [ ] Resolve each line via brand/model picker — verify warning clears, prices fill correctly
-- [ ] Attempt PDF export with unresolved line — verify it is blocked
-- [ ] Edit bundle after insertion — verify existing quote lines unchanged (snapshot)
-- [ ] Soft-delete bundle — verify it disappears from picker but old quotes unaffected
+- [ ] Create bundle with products from multiple categories → insert into quote — verify N level-1 lines appear, prices filled
+- [ ] Nested bundle (bundle containing a bundle) → insert → verify recursive expansion works
+- [ ] Qty multiplier: insert bundle × 3 → verify leaf quantities multiplied
+- [ ] Edit bundle after insertion → verify existing quote lines unchanged (snapshot behaviour)
+- [ ] Soft-delete bundle → verify it disappears from picker but old quotes unaffected
 - [ ] RLS: confirm cross-org bundle read returns 0 rows
-
----
-
-## Open questions
-
-1. **Qty multiplier:** User enters one qty at insert time ("Insert bundle × N"). All child quantities are multiplied by N at insertion.
-2. **Nested bundles:** Not planned for v1 — bundle lines are category slots only, no child-bundle references. Simplifies the schema and avoids cycle-detection complexity.
-3. **Price override on resolved lines:** Not in v1 — unit price comes from the resolved product. Manually editable after resolution (same as any quote line).
-4. **Category autocomplete source:** Distinct `products.category` values in the org's catalog. If the catalog is empty, the bundle builder shows an empty dropdown — not a blocker, just note it in onboarding.

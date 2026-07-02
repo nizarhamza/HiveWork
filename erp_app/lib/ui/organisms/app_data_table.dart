@@ -616,6 +616,7 @@ class _ResizeHandleState extends State<_ResizeHandle> {
   void _onUp(PointerUpEvent e) {
     final totalDrag = _downX != null ? (e.position.dx - _downX!).abs() : 99.0;
     final wasDrag   = _dragStarted;
+    if (!mounted) return;
     setState(() {
       _pressing    = false;
       _dragStarted = false;
@@ -629,6 +630,7 @@ class _ResizeHandleState extends State<_ResizeHandle> {
   }
 
   void _onCancel(PointerCancelEvent e) {
+    if (!mounted) return;
     setState(() {
       _pressing    = false;
       _dragStarted = false;

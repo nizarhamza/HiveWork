@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Multi-tenant ERP — Nizar's solo project. Single Flutter codebase targeting **web (primary) → Windows → mobile**, Supabase backend. Design-first, modular, inspired by Linear's UI language.
 
-**Current state (2026-06-18):** design system tokens + shell done, CRM Contacts list done with in-memory data, Sales/Invoicing/Projects are stubs. No backend, auth, or RLS yet.
+**Current state (2026-07-01):** Phases 0–3 largely done plus Phase 4a (Inventory). Full component library (atoms → organisms), command palette, gallery page, Supabase schema + RLS (35+ migrations), auth/multi-tenant session, CRM Contacts + Companies, three-pane shell (`RecordDetailShell`), Sales Pipeline + Quotes (Tunisian tax format, PDF export), Inventory Products + Suppliers, payment terms. Phase 4b (Bundles) done — bundle builder + `flattenBundle` recursive expansion + "Insert bundle" wired into quotes.
 
-**Immediate next:** Phase 3 three-pane record-detail view, then Phase 1 Supabase schema + RLS.
+**Immediate next:** Fix `client_id` FK bug, then Invoicing module (Phase 4 main) — invoice list/detail, quote→invoice transition, PDF, payments.
 
 ---
 

@@ -20,6 +20,7 @@ class LinearSidebarItem extends StatefulWidget {
     this.indent = 0,
     this.isFavorited = false,
     this.onFavorite,
+    this.reorderIndex,
   });
 
   final String label;
@@ -30,6 +31,7 @@ class LinearSidebarItem extends StatefulWidget {
   final double indent;
   final bool isFavorited;
   final VoidCallback? onFavorite;
+  final int? reorderIndex;
 
   @override
   State<LinearSidebarItem> createState() => _LinearSidebarItemState();
@@ -112,6 +114,26 @@ class _LinearSidebarItemState extends State<LinearSidebarItem> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (widget.reorderIndex != null)
+                    IgnorePointer(
+                      ignoring: !_hovered,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 140),
+                        opacity: _hovered ? 1.0 : 0.0,
+                        child: ReorderableDragStartListener(
+                          index: widget.reorderIndex!,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.grab,
+                            child: Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                  start: 2, end: 2),
+                              child: Icon(Icons.drag_indicator,
+                                  size: 12, color: ext.textMuted),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ?trailingWidget,
                 ],
               ),

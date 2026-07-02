@@ -7,9 +7,9 @@ class QuoteRepository {
 
   static const _table      = 'quotes';
   static const _linesTable = 'quote_lines';
-  static const _selectJoin = '*, clients(id, name)';
+  static const _selectJoin = '*, companies(id, name), contacts(id, first_name, last_name)';
   static const _selectQuote =
-      'id, org_id, number, client_id, client_snapshot, currency, '
+      'id, org_id, number, company_id, contact_id, client_snapshot, currency, '
       'subtotal, tax, total, valid_until, status, converted_invoice_id, notes, '
       'created_at, updated_at, objet, contract_number, payment_mode, '
       'payment_term_template_id, payment_term_snapshot, '
@@ -101,15 +101,28 @@ class QuoteRepository {
           .inFilter('id', existingIds);
     }
 
-    // 3. Update the quote header.
+    // 3. Update the quote header. Editing content always resets status to draft
+    //    so the quote must go through the approval flow again.
+    final payload = Map<String, dynamic>.from(input.toQuoteJson())
+      ..['status'] = 'draft';
     final row = await _client
         .from(_table)
-        .update(input.toQuoteJson())
+        .update(payload)
         .eq('id', id)
         .select(_selectJoin)
         .single();
 
     return QuoteWithClient.fromJson(row);
+  }
+
+  // ── Update status ─────────────────────────────────────────────────────────────
+
+  Future<void> updateStatus(String id, String orgId, QuoteStatus status) async {
+    await _client
+        .from(_table)
+        .update({'status': status.name})
+        .eq('id', id)
+        .eq('org_id', orgId);
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────────

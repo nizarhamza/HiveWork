@@ -206,7 +206,7 @@ class _ErpAppState extends ConsumerState<ErpApp> {
     final fontFamily  = ref.watch(fontFamilyProvider);
     final fontScale   = kFontSizePresets[ref.watch(fontSizeProvider)].scale;
     return MaterialApp.router(
-      title: 'ERP',
+      title: 'HiveWork',
       debugShowCheckedModeBanner: false,
       theme: buildLinearLightTheme(
         accent:        accent,

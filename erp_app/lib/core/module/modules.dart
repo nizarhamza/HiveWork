@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../modules/crm/crm_module.dart';
 import '../../modules/inventory/inventory_module.dart';
+import '../../modules/invoicing/invoicing_module.dart';
 import '../../modules/sales/sales_module.dart';
 import '../../modules/stubs/stub_modules.dart';
 import 'app_module.dart';

@@ -13,6 +13,7 @@ import '../../data/models/quote.dart';
 import '../../data/models/quote_line_tree.dart';
 import '../../theme/linear_tokens.dart';
 import '../org/org_details.dart';
+import '../../core/prefs/pdf_layout_prefs.dart';
 
 // Module-level mono font — set once per exportQuotePdf call (Dart is single-threaded).
 pw.Font? _monoFont;
@@ -67,6 +68,8 @@ Future<Uint8List> _buildQuotePdfBytes(
   final fontItalic = await PdfGoogleFonts.notoSansItalic();
   _monoFont        = await PdfGoogleFonts.robotoMonoRegular();
 
+  final prefs = await PdfLayoutPrefs.load();
+
   final theme = pw.ThemeData.withFont(
     base:       fontBase,
     bold:       fontBold,
@@ -92,21 +95,23 @@ Future<Uint8List> _buildQuotePdfBytes(
         pw.SizedBox(height: 4),
         pw.Divider(color: _greyBorder, height: 1),
         pw.SizedBox(height: 12),
-        _clientMetaRow(item, quote),
+        _clientMetaRow(item, quote, prefs),
         pw.SizedBox(height: 10),
         if (_notEmpty(quote.objet)) ...[
           _objet(quote.objet!),
           pw.SizedBox(height: 8),
         ],
-        _lineTable(quote, rows),
-        if (tva.isNotEmpty) ...[
+        _lineTable(quote, rows, prefs),
+        if (tva.isNotEmpty && prefs.showTvaRecap) ...[
           pw.SizedBox(height: 10),
           _tvaRecap(quote, tva),
         ],
         pw.SizedBox(height: 14),
-        _bottomRow(org, quote),
-        pw.Expanded(child: pw.SizedBox()),
-        _signatures(),
+        _bottomRow(org, quote, prefs),
+        if (prefs.showSignatures) ...[
+          pw.Expanded(child: pw.SizedBox()),
+          _signatures(),
+        ],
       ],
     ),
   );
@@ -474,7 +479,7 @@ pw.Widget _header(OrgDetails org, pw.ImageProvider? logoImage) {
 
 // ── Client block (left) | DEVIS meta (right) ─────────────────────────────────
 
-pw.Widget _clientMetaRow(QuoteWithClient item, Quote quote) {
+pw.Widget _clientMetaRow(QuoteWithClient item, Quote quote, PdfLayoutPrefs prefs) {
   return pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
@@ -498,11 +503,11 @@ pw.Widget _clientMetaRow(QuoteWithClient item, Quote quote) {
               item.clientName ?? quote.clientSnapshotName ?? 'Client',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
             ),
-            if (_notEmpty(quote.clientSnapshotAddress))
+            if (prefs.showClientAddress && _notEmpty(quote.clientSnapshotAddress))
               pw.Text(quote.clientSnapshotAddress!, style: const pw.TextStyle(fontSize: 9.5)),
-            if (_notEmpty(quote.clientSnapshotPhone))
+            if (prefs.showClientPhone && _notEmpty(quote.clientSnapshotPhone))
               pw.Text('Tél : ${quote.clientSnapshotPhone}', style: const pw.TextStyle(fontSize: 9.5)),
-            if (_notEmpty(quote.clientSnapshotTaxId))
+            if (prefs.showClientTaxId && _notEmpty(quote.clientSnapshotTaxId))
               pw.Padding(
                 padding: const pw.EdgeInsets.only(top: 3),
                 child: pw.Text(
@@ -510,6 +515,12 @@ pw.Widget _clientMetaRow(QuoteWithClient item, Quote quote) {
                   style: pw.TextStyle(fontSize: 8.5, color: _accent, fontWeight: pw.FontWeight.bold),
                 ),
               ),
+            for (final cf in prefs.customFields)
+              if (_notEmpty(quote.clientSnapshotCustomFields[cf.key]?.toString()))
+                pw.Text(
+                  '${cf.label} : ${quote.clientSnapshotCustomFields[cf.key]}',
+                  style: const pw.TextStyle(fontSize: 9.5),
+                ),
           ],
         ),
       ),
@@ -524,10 +535,10 @@ pw.Widget _clientMetaRow(QuoteWithClient item, Quote quote) {
           ),
           pw.SizedBox(height: 4),
           _metaLine('N°', quote.number, bold: true),
-          if (_notEmpty(quote.contractNumber)) _metaLine('N° Contrat', quote.contractNumber!),
+          if (prefs.showContractNumber && _notEmpty(quote.contractNumber)) _metaLine('N° Contrat', quote.contractNumber!),
           _metaLine('Date', _fmtDate(quote.createdAt)),
-          if (quote.validUntil != null) _metaLine('Validité', _fmtDate(quote.validUntil!)),
-          if (_notEmpty(quote.paymentMode)) _metaLine('Payment Terms', _asciiSafe(quote.paymentMode!)),
+          if (prefs.showValidityDate && quote.validUntil != null) _metaLine('Validité', _fmtDate(quote.validUntil!)),
+          if (prefs.showPaymentMode && _notEmpty(quote.paymentMode)) _metaLine('Payment Terms', _asciiSafe(quote.paymentMode!)),
         ],
       ),
     ],
@@ -568,27 +579,27 @@ pw.Widget _objet(String text) => pw.RichText(
 
 // ── Line table ────────────────────────────────────────────────────────────────
 
-const _colWidths = {
-  0: pw.FixedColumnWidth(28),
-  1: pw.FlexColumnWidth(4),
-  2: pw.FixedColumnWidth(40),
-  3: pw.FixedColumnWidth(36),
-  4: pw.FixedColumnWidth(56),
-  5: pw.FixedColumnWidth(50), // widened so "Remise" fits on one line
-  6: pw.FixedColumnWidth(36),
-  7: pw.FixedColumnWidth(64),
-};
-
-pw.Widget _lineTable(Quote quote, List<QuoteLineRow> rows) {
+pw.Widget _lineTable(Quote quote, List<QuoteLineRow> rows, PdfLayoutPrefs prefs) {
   final dataRows = <pw.TableRow>[];
   var leafIdx = 0;
   for (final r in rows) {
-    dataRows.addAll(_lineRows(quote, r, isEven: leafIdx % 2 == 0));
+    dataRows.addAll(_lineRows(quote, r, isEven: leafIdx % 2 == 0, prefs: prefs));
     if (r.isLeaf) leafIdx++;
   }
 
+  var ci = 0;
+  final colWidths = <int, pw.TableColumnWidth>{};
+  colWidths[ci++] = const pw.FixedColumnWidth(28);
+  colWidths[ci++] = const pw.FlexColumnWidth(4);
+  if (prefs.showUnitColumn)     colWidths[ci++] = const pw.FixedColumnWidth(40);
+  colWidths[ci++] = const pw.FixedColumnWidth(36);
+  colWidths[ci++] = const pw.FixedColumnWidth(56);
+  if (prefs.showDiscountColumn) colWidths[ci++] = const pw.FixedColumnWidth(50);
+  colWidths[ci++] = const pw.FixedColumnWidth(36);
+  colWidths[ci++] = const pw.FixedColumnWidth(64);
+
   return pw.Table(
-    columnWidths: _colWidths,
+    columnWidths: colWidths,
     border: const pw.TableBorder(),
     children: [
       pw.TableRow(
@@ -596,10 +607,10 @@ pw.Widget _lineTable(Quote quote, List<QuoteLineRow> rows) {
         children: [
           _hdrCell('N°', center: true),
           _hdrCell('Désignation', left: true),
-          _hdrCell('Unité'),
+          if (prefs.showUnitColumn) _hdrCell('Unité'),
           _hdrCell('Qté'),
           _hdrCell('Prix U. HT'),
-          _hdrCell('Remise'),
+          if (prefs.showDiscountColumn) _hdrCell('Remise'),
           _hdrCell('TVA'),
           _hdrCell('Total HT'),
         ],
@@ -609,7 +620,7 @@ pw.Widget _lineTable(Quote quote, List<QuoteLineRow> rows) {
   );
 }
 
-List<pw.TableRow> _lineRows(Quote quote, QuoteLineRow r, {required bool isEven}) {
+List<pw.TableRow> _lineRows(Quote quote, QuoteLineRow r, {required bool isEven, required PdfLayoutPrefs prefs}) {
   if (!r.isLeaf) {
     final bg       = r.depth == 0 ? _catBg : _subCatBg;
     final fontSize = r.depth == 0 ? 11.0 : 10.5;
@@ -622,7 +633,10 @@ List<pw.TableRow> _lineRows(Quote quote, QuoteLineRow r, {required bool isEven})
         children: [
           _cell(r.number, center: true, bold: true, color: _accent, fontSize: fontSize),
           _cell(r.line.label, left: true, bold: true, fontSize: fontSize),
-          _cell(''), _cell(''), _cell(''), _cell(''), _cell(''),
+          if (prefs.showUnitColumn) _cell(''),
+          _cell(''), _cell(''),
+          if (prefs.showDiscountColumn) _cell(''),
+          _cell(''),
           _cell(_fmtMoney(r.displayTotal, quote.currency), right: true, bold: true, mono: true, fontSize: fontSize),
         ],
       ),
@@ -662,10 +676,10 @@ List<pw.TableRow> _lineRows(Quote quote, QuoteLineRow r, {required bool isEven})
             ],
           ),
         ),
-        _cell(_safeStr(l.unit), right: true, fontSize: 10),
+        if (prefs.showUnitColumn) _cell(_safeStr(l.unit), right: true, fontSize: 10),
         _cell(_fmtQty(l.qty), right: true, fontSize: 10),
         _cell(_fmtMoney(l.unitPrice, quote.currency, withSuffix: false), right: true, fontSize: 10),
-        _cell(l.discountRate > 0 ? '${_fmtPercent(l.discountRate)}%' : '-', right: true, fontSize: 10),
+        if (prefs.showDiscountColumn) _cell(l.discountRate > 0 ? '${_fmtPercent(l.discountRate)}%' : '-', right: true, fontSize: 10),
         _cell('${_fmtPercent(l.taxRate)}%', right: true, fontSize: 10),
         _cell(_fmtMoney(l.lineTotal, quote.currency, withSuffix: false), right: true, mono: true, fontSize: 10),
       ],
@@ -774,11 +788,11 @@ pw.Widget _tvaRecap(Quote quote, Map<double, ({double base, double amount})> tva
 
 // ── Bottom row: payment/bank (left) | totals (right) ─────────────────────────
 
-pw.Widget _bottomRow(OrgDetails org, Quote quote) {
+pw.Widget _bottomRow(OrgDetails org, Quote quote, PdfLayoutPrefs prefs) {
   return pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
-      pw.Expanded(flex: 5, child: _paymentColumn(org, quote)),
+      pw.Expanded(flex: 5, child: _paymentColumn(org, quote, prefs)),
       pw.SizedBox(width: 16),
       pw.Expanded(
         flex: 4,
@@ -786,8 +800,10 @@ pw.Widget _bottomRow(OrgDetails org, Quote quote) {
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
             _totalsColumn(quote),
-            pw.SizedBox(height: 8),
-            _montantEnLettres(quote),
+            if (prefs.showMontantEnLettres) ...[
+              pw.SizedBox(height: 8),
+              _montantEnLettres(quote),
+            ],
           ],
         ),
       ),
@@ -795,14 +811,14 @@ pw.Widget _bottomRow(OrgDetails org, Quote quote) {
   );
 }
 
-pw.Widget _paymentColumn(OrgDetails org, Quote quote) {
+pw.Widget _paymentColumn(OrgDetails org, Quote quote, PdfLayoutPrefs prefs) {
   final snapshot    = quote.paymentTermSnapshot ?? <Map<String, dynamic>>[];
   final hasSnapshot = snapshot.isNotEmpty;
   // Fall back to notes or org default when no structured snapshot exists
   final fallbackText = !hasSnapshot
       ? (_safeVal(quote.notes) ?? _safeVal(org.defaultPaymentTerms))
       : null;
-  final showTerms = hasSnapshot || fallbackText != null;
+  final showTerms = prefs.showPaymentTerms && (hasSnapshot || fallbackText != null);
 
   final hasBank = _notEmpty(org.bankName) || _notEmpty(org.bankRib) ||
                   _notEmpty(org.bankIban) || _notEmpty(org.bankBic);
@@ -831,7 +847,7 @@ pw.Widget _paymentColumn(OrgDetails org, Quote quote) {
         ),
         pw.SizedBox(height: 8),
       ],
-      if (hasBank) ...[
+      if (prefs.showBankDetails && hasBank) ...[
         _labeledBox(
           label: 'COORDONNÉES BANCAIRES',
           child: pw.Column(

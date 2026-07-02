@@ -101,7 +101,6 @@ Comparable? Function(QuoteWithClient)? _sortKeyFor(_ColId id) => switch (id) {
   _ColId.client => (q) => q.clientName?.toLowerCase(),
   _ColId.status => (q) => q.quote.status.index,
   _ColId.total  => (q) => q.quote.total,
-  _ => null,
 };
 
 String? _fitValueFor(_ColId id, QuoteWithClient q) => switch (id) {
@@ -534,7 +533,7 @@ class _QuotesPageState extends ConsumerState<QuotesPage> {
       groups:          _buildGroups(quotes),
       columns:         [for (final c in _columns) _toAppDef(c)],
       trailingColumns: [actionsCol],
-      leadingBuilder:  (_, __) => const SizedBox.shrink(),
+      leadingBuilder:  (_, _) => const SizedBox.shrink(),
       leadingWidth:    0,
       itemKey:         (q) => q.quote.id,
       onTap:           (q) => setState(() =>
@@ -617,6 +616,10 @@ class _QuoteActionsMenuState extends State<_QuoteActionsMenu> {
 
 // ── Status filter button ───────────────────────────────────────────────────────
 
+// Sentinel to distinguish "All statuses selected" from "menu dismissed" —
+// PopupMenuButton never calls onSelected when value is null.
+const _kAllStatuses = Object();
+
 class _StatusFilterButton extends StatelessWidget {
   const _StatusFilterButton({required this.current, required this.onChanged});
   final QuoteStatus?               current;
@@ -628,14 +631,14 @@ class _StatusFilterButton extends StatelessWidget {
     final text   = Theme.of(context).textTheme;
     final active = current != null;
 
-    return PopupMenuButton<QuoteStatus?>(
+    return PopupMenuButton<Object>(
       tooltip:     'Filter by status',
       padding:     EdgeInsets.zero,
       offset:      const Offset(0, 36),
       constraints: const BoxConstraints(minWidth: 160),
       itemBuilder: (_) => [
-        PopupMenuItem<QuoteStatus?>(
-          value:  null,
+        PopupMenuItem<Object>(
+          value:  _kAllStatuses,
           height: 32,
           child:  Text('All statuses',
               style: text.bodySmall?.copyWith(
@@ -643,7 +646,7 @@ class _StatusFilterButton extends StatelessWidget {
         ),
         const PopupMenuDivider(height: 1),
         ...QuoteStatus.values.map(
-          (s) => PopupMenuItem<QuoteStatus?>(
+          (s) => PopupMenuItem<Object>(
             value:  s,
             height: 32,
             child: Row(
@@ -664,7 +667,7 @@ class _StatusFilterButton extends StatelessWidget {
           ),
         ),
       ],
-      onSelected: onChanged,
+      onSelected: (v) => onChanged(v == _kAllStatuses ? null : v as QuoteStatus),
       child: _GhostChip(
         active: active,
         child: Row(

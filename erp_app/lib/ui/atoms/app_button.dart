@@ -34,6 +34,11 @@ class AppButton extends StatelessWidget {
       AppButtonSize.md => 28.0,
       AppButtonSize.lg => 36.0,
     };
+    final minW = switch (size) {
+      AppButtonSize.sm => 64.0,
+      AppButtonSize.md => 80.0,
+      AppButtonSize.lg => 96.0,
+    };
     final fs = switch (size) {
       AppButtonSize.sm => 11.0,
       AppButtonSize.md => 12.0,
@@ -45,7 +50,7 @@ class AppButton extends StatelessWidget {
     final shape  = RoundedRectangleBorder(borderRadius: BorderRadius.circular(LinearRadii.md));
     final style  = ButtonStyle(
       padding:     WidgetStatePropertyAll(padding),
-      minimumSize: WidgetStatePropertyAll(Size(0, minH)),
+      minimumSize: WidgetStatePropertyAll(Size(minW, minH)),
       textStyle:   WidgetStatePropertyAll(TextStyle(fontFamily: 'Inter', fontSize: fs, fontWeight: FontWeight.w500)),
     );
 

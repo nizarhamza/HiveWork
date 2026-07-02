@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/auth_repository.dart';
+import '../../core/prefs/view_prefs_service.dart';
 import '../../theme/linear_tokens.dart';
 import 'org_providers.dart';
 import 'org_role.dart';
@@ -40,7 +41,8 @@ class _OrgSelectorPageState extends ConsumerState<OrgSelectorPage> {
       if (!mounted) return;
       final orgId = await ref.read(currentOrgIdProvider.future);
       if (mounted && orgId != null && _claimNavigation()) {
-        context.go('/crm/contacts');
+        final saved = await ViewPrefsService.getString('shell.lastRoute');
+        if (mounted) context.go(saved ?? '/crm/contacts');
       }
     });
   }
@@ -128,7 +130,7 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: LinearSpacing.sm),
-          Text('ERP', style: context.text.titleMedium),
+          Text('HiveWork', style: context.text.titleMedium),
           const Spacer(),
           TextButton(
             onPressed: () => ref.read(authRepositoryProvider).signOut(),
@@ -196,7 +198,10 @@ class _OrgList extends ConsumerWidget {
     // Only navigate if we were the first to claim navigation rights.
     // If the initState auto-redirect already started, skip to avoid a
     // second context.go() that duplicates the ShellRoute's navigator key.
-    if (canNavigate && context.mounted) context.go('/crm/contacts');
+    if (canNavigate && context.mounted) {
+      final saved = await ViewPrefsService.getString('shell.lastRoute');
+      if (context.mounted) context.go(saved ?? '/crm/contacts');
+    }
   }
 }
 
@@ -366,15 +371,17 @@ class _OrgAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (logoUrl != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(LinearRadii.lg),
-        child: Image.network(
-          logoUrl!,
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              _InitialsAvatar(initial: initial),
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 100, minWidth: 40),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(LinearRadii.sm),
+          child: Image.network(
+            logoUrl!,
+            height: 40,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) =>
+                _InitialsAvatar(initial: initial),
+          ),
         ),
       );
     }

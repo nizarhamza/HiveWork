@@ -3,17 +3,17 @@
 > Goal: people can sign in, belong to an org, and see only what their role allows — entering through a guided setup.
 
 ## Authentication
-- [ ] Sign-up and sign-in
-- [ ] Magic link / OAuth provider
-- [ ] Password reset
-- [ ] Secure session/token storage across web, Windows, mobile
-- [ ] Auth-state routing (redirect guards in go_router)
+- [x] Sign-up and sign-in
+- [x] Magic link / OAuth provider
+- [x] Password reset
+- [x] Secure session/token storage across web, Windows, mobile
+- [x] Auth-state routing (redirect guards in go_router)
 
 ## Multi-tenant membership
-- [ ] Create-organization flow
+- [x] Create-organization flow
 - [ ] Invite teammates by email
 - [ ] Accept-invite / join org
-- [ ] Org switcher wired into the workspace switcher
+- [x] Org switcher wired into the workspace switcher
 
 ## RBAC enforcement
 - [ ] `permissions` provider (current user's permissions)

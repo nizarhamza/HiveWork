@@ -30,7 +30,7 @@ Future<({Uint8List bytes, String mimeType})?> pickImageBytes() async {
 
       reader.addEventListener(
         'load',
-        (web.Event __) {
+        (web.Event _) {
           input.remove();
           if (completer.isCompleted) return;
           try {
@@ -46,7 +46,7 @@ Future<({Uint8List bytes, String mimeType})?> pickImageBytes() async {
 
       reader.addEventListener(
         'error',
-        (web.Event __) {
+        (web.Event _) {
           input.remove();
           if (!completer.isCompleted) completer.complete(null);
         }.toJS,

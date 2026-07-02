@@ -235,7 +235,7 @@ class _BrandPanel extends StatelessWidget {
                     ),
                     const SizedBox(width: LinearSpacing.sm),
                     Text(
-                      'ERP',
+                      'HiveWork',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,

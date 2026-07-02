@@ -42,6 +42,14 @@ class QuotesNotifier extends AsyncNotifier<List<QuoteWithClient>> {
     await refresh();
   }
 
+  Future<void> updateStatus(String id, QuoteStatus status) async {
+    final orgId = await ref.read(currentOrgIdProvider.future);
+    if (orgId == null) return;
+    await ref.read(quoteRepositoryProvider).updateStatus(id, orgId, status);
+    ref.invalidate(quoteWithLinesProvider(id));
+    await refresh();
+  }
+
   Future<void> delete(String id) async {
     final orgId = await ref.read(currentOrgIdProvider.future);
     if (orgId == null) return;

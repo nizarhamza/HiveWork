@@ -37,6 +37,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   // sidebarWidth matches LinearTokens.sidebarWidth constant (232).
   double _sidebarWidth = 232;
   Timer? _saveSidebarTimer;
+  String? _lastSavedRoute;
 
   @override
   void initState() {
@@ -56,6 +57,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final registry     = ref.watch(moduleRegistryProvider);
     final location     = GoRouterState.of(context).uri.path;
+    if (location != _lastSavedRoute) {
+      _lastSavedRoute = location;
+      ViewPrefsService.setString('shell.lastRoute', location);
+    }
     final activeModule = registry.moduleForLocation(location);
     final isWide       = MediaQuery.sizeOf(context).width >= kExpandedBreakpoint;
     final paletteOpen  = ref.watch(commandPaletteOpenProvider);
@@ -203,7 +208,6 @@ class _SidebarState extends ConsumerState<_Sidebar> {
     }
 
     final expandedModuleId = fromFavs ? null : widget.activeModule?.id;
-    final lt = context.linearTokens;
 
     // Favorites list filtered to only known nav items.
     final visibleFavs =
@@ -270,35 +274,31 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                           oldIndex, newIndex, orderedModules),
                       children: [
                         for (int i = 0; i < orderedModules.length; i++)
-                          _DraggableRow(
+                          Column(
                             key: ValueKey(orderedModules[i].id),
-                            index: i,
-                            rowHeight: lt.rowHeightDefault,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                LinearSidebarItem(
-                                  label: orderedModules[i].title,
-                                  icon: orderedModules[i].icon,
-                                  onTap: () =>
-                                      goWorkspace(orderedModules[i].basePath),
-                                ),
-                                if (orderedModules[i].id == expandedModuleId)
-                                  for (final item
-                                      in orderedModules[i].navItems)
-                                    LinearSidebarItem(
-                                      label: item.label,
-                                      icon: item.icon,
-                                      indent: LinearSpacing.xl,
-                                      selected: widget.location == item.path,
-                                      isFavorited:
-                                          favorites.contains(item.path),
-                                      onFavorite: () =>
-                                          favNotifier.toggle(item.path),
-                                      onTap: () => goWorkspace(item.path),
-                                    ),
-                              ],
-                            ),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              LinearSidebarItem(
+                                label: orderedModules[i].title,
+                                icon: orderedModules[i].icon,
+                                reorderIndex: i,
+                                onTap: () =>
+                                    goWorkspace(orderedModules[i].basePath),
+                              ),
+                              if (orderedModules[i].id == expandedModuleId)
+                                for (final item in orderedModules[i].navItems)
+                                  LinearSidebarItem(
+                                    label: item.label,
+                                    icon: item.icon,
+                                    indent: LinearSpacing.xl,
+                                    selected: widget.location == item.path,
+                                    isFavorited: favorites.contains(item.path),
+                                    onFavorite: () =>
+                                        favNotifier.toggle(item.path),
+                                    onTap: () => goWorkspace(item.path),
+                                  ),
+                            ],
                           ),
                       ],
                     ),
@@ -321,20 +321,16 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                             favNotifier.reorder(oldIndex, newIndex),
                         children: [
                           for (int i = 0; i < visibleFavs.length; i++)
-                            _DraggableRow(
+                            LinearSidebarItem(
                               key: ValueKey(visibleFavs[i]),
-                              index: i,
-                              rowHeight: lt.rowHeightDefault,
-                              child: LinearSidebarItem(
-                                label: allNavItems[visibleFavs[i]]!.label,
-                                icon: allNavItems[visibleFavs[i]]!.icon,
-                                selected:
-                                    widget.location == visibleFavs[i],
-                                isFavorited: true,
-                                onFavorite: () =>
-                                    favNotifier.toggle(visibleFavs[i]),
-                                onTap: () => goFavorite(visibleFavs[i]),
-                              ),
+                              label: allNavItems[visibleFavs[i]]!.label,
+                              icon: allNavItems[visibleFavs[i]]!.icon,
+                              selected: widget.location == visibleFavs[i],
+                              isFavorited: true,
+                              reorderIndex: i,
+                              onFavorite: () =>
+                                  favNotifier.toggle(visibleFavs[i]),
+                              onTap: () => goFavorite(visibleFavs[i]),
                             ),
                         ],
                       ),
@@ -350,66 +346,6 @@ class _SidebarState extends ConsumerState<_Sidebar> {
               LinearSpacing.sm, 0, LinearSpacing.sm, LinearSpacing.sm,
             ),
             child: _UserRow(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Drag handle overlay ───────────────────────────────────────────────────────
-
-class _DraggableRow extends StatefulWidget {
-  const _DraggableRow({
-    required super.key,
-    required this.index,
-    required this.child,
-    required this.rowHeight,
-  });
-
-  final int index;
-  final Widget child;
-  final double rowHeight;
-
-  @override
-  State<_DraggableRow> createState() => _DraggableRowState();
-}
-
-class _DraggableRowState extends State<_DraggableRow> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: Stack(
-        children: [
-          widget.child,
-          Positioned(
-            left: 2,
-            top: 0,
-            height: widget.rowHeight,
-            child: IgnorePointer(
-              ignoring: !_hovered,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 100),
-                opacity: _hovered ? 1.0 : 0.0,
-                child: Center(
-                  child: ReorderableDragStartListener(
-                    index: widget.index,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.grab,
-                      child: Icon(
-                        Icons.drag_indicator,
-                        size: 12,
-                        color: context.linearExt.textMuted,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -444,16 +380,23 @@ class _WorkspaceSwitcher extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(LinearRadii.sm),
-                child: logoUrl != null
-                    ? Image.network(
-                        logoUrl,
-                        width: 20, height: 20, fit: BoxFit.cover,
-                        errorBuilder: (_, e, s) => _OrgInitialBox(initial: initial),
-                      )
-                    : _OrgInitialBox(initial: initial),
-              ),
+              if (logoUrl != null)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 60, minWidth: 20),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(LinearRadii.sm),
+                    child: Image.network(
+                      logoUrl,
+                      height: 20, fit: BoxFit.contain,
+                      errorBuilder: (_, e, s) => _OrgInitialBox(initial: initial),
+                    ),
+                  ),
+                )
+              else
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(LinearRadii.sm),
+                  child: _OrgInitialBox(initial: initial),
+                ),
               const SizedBox(width: LinearSpacing.sm),
               Text(orgName,
                 style: Theme.of(context).textTheme.titleSmall),

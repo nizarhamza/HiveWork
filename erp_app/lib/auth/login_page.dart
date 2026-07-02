@@ -239,7 +239,7 @@ class _CompactLogo extends StatelessWidget {
         ),
         const SizedBox(width: LinearSpacing.sm),
         Text(
-          'ERP',
+          'HiveWork',
           style: Theme.of(context).textTheme.titleLarge,
         ),
       ],

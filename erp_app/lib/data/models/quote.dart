@@ -180,7 +180,8 @@ class Quote {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
-    this.clientId,
+    this.companyId,
+    this.contactId,
     this.clientSnapshot,
     this.validUntil,
     this.convertedInvoiceId,
@@ -202,7 +203,8 @@ class Quote {
   final String      id;
   final String      orgId;
   final String      number;
-  final String?     clientId;
+  final String?     companyId;
+  final String?     contactId;
   final Map<String, dynamic>? clientSnapshot;
   final String      currency;
   final double      subtotal;
@@ -233,6 +235,8 @@ class Quote {
   String? get clientSnapshotAddress => clientSnapshot?['address'] as String?;
   String? get clientSnapshotPhone   => clientSnapshot?['phone']   as String?;
   String? get clientSnapshotTaxId   => clientSnapshot?['tax_id']  as String?;
+  Map<String, dynamic> get clientSnapshotCustomFields =>
+      (clientSnapshot?['custom_fields'] as Map<String, dynamic>?) ?? {};
 
   String get displayTotal {
     final sym = _sym(currency);
@@ -257,7 +261,8 @@ class Quote {
         id:                 json['id']                    as String,
         orgId:              json['org_id']                as String,
         number:             json['number']                as String,
-        clientId:           json['client_id']             as String?,
+        companyId:          json['company_id']            as String?,
+        contactId:          json['contact_id']            as String?,
         clientSnapshot:     json['client_snapshot']       as Map<String, dynamic>?,
         currency:           json['currency']              as String? ?? 'EUR',
         subtotal:           (json['subtotal']             as num? ?? 0).toDouble(),
@@ -290,7 +295,8 @@ class Quote {
         id:                 id,
         orgId:              orgId,
         number:             number,
-        clientId:           clientId,
+        companyId:          companyId,
+        contactId:          contactId,
         clientSnapshot:     clientSnapshot,
         currency:           currency,
         subtotal:           subtotal,
@@ -323,11 +329,13 @@ class QuoteInput {
   const QuoteInput({
     required this.orgId,
     required this.lines,
-    this.clientId,
+    this.companyId,
+    this.contactId,
     this.clientName,
     this.clientAddress,
     this.clientPhone,
     this.clientTaxId,
+    this.clientCustomFields,
     this.currency   = 'USD',
     this.status     = QuoteStatus.draft,
     this.validUntil,
@@ -346,11 +354,13 @@ class QuoteInput {
   });
 
   final String          orgId;
-  final String?         clientId;
+  final String?         companyId;
+  final String?         contactId;
   final String?         clientName;
   final String?         clientAddress;
   final String?         clientPhone;
   final String?         clientTaxId;
+  final Map<String, dynamic>? clientCustomFields;
   final List<QuoteLineInput> lines;
   final String          currency;
   final QuoteStatus     status;
@@ -417,13 +427,16 @@ class QuoteInput {
         'subtotal': subtotal,
         'tax':      tax,
         'total':    total,
-        if (clientId != null) 'client_id': clientId,
+        if (companyId != null) 'company_id': companyId,
+        if (contactId != null) 'contact_id': contactId,
         if (clientName != null)
           'client_snapshot': {
             'name':    clientName,
             if (clientAddress != null) 'address': clientAddress,
             if (clientPhone   != null) 'phone':   clientPhone,
             if (clientTaxId   != null) 'tax_id':  clientTaxId,
+            if (clientCustomFields != null && clientCustomFields!.isNotEmpty)
+              'custom_fields': clientCustomFields,
           },
         if (validUntil != null)
           'valid_until': validUntil!.toIso8601String().split('T').first,
@@ -443,11 +456,13 @@ class QuoteInput {
 
   QuoteInput copyWith({
     String?           orgId,
-    Object?           clientId      = _absent,
-    Object?           clientName    = _absent,
-    Object?           clientAddress = _absent,
-    Object?           clientPhone   = _absent,
-    Object?           clientTaxId   = _absent,
+    Object?           companyId          = _absent,
+    Object?           contactId          = _absent,
+    Object?           clientName         = _absent,
+    Object?           clientAddress      = _absent,
+    Object?           clientPhone        = _absent,
+    Object?           clientTaxId        = _absent,
+    Object?           clientCustomFields = _absent,
     List<QuoteLineInput>? lines,
     String?           currency,
     QuoteStatus?      status,
@@ -467,11 +482,13 @@ class QuoteInput {
   }) =>
       QuoteInput(
         orgId:         orgId         ?? this.orgId,
-        clientId:      identical(clientId,      _absent) ? this.clientId      : clientId      as String?,
+        companyId:     identical(companyId,     _absent) ? this.companyId     : companyId     as String?,
+        contactId:     identical(contactId,     _absent) ? this.contactId     : contactId     as String?,
         clientName:    identical(clientName,    _absent) ? this.clientName    : clientName    as String?,
         clientAddress: identical(clientAddress, _absent) ? this.clientAddress : clientAddress as String?,
         clientPhone:   identical(clientPhone,   _absent) ? this.clientPhone   : clientPhone   as String?,
         clientTaxId:   identical(clientTaxId,   _absent) ? this.clientTaxId   : clientTaxId   as String?,
+        clientCustomFields: identical(clientCustomFields, _absent) ? this.clientCustomFields : clientCustomFields as Map<String, dynamic>?,
         lines:         lines         ?? this.lines,
         currency:      currency      ?? this.currency,
         status:        status        ?? this.status,
@@ -496,7 +513,8 @@ const _absent = Object();
 extension QuoteToInput on Quote {
   QuoteInput toInput() => QuoteInput(
         orgId:         orgId,
-        clientId:      clientId,
+        companyId:     companyId,
+        contactId:     contactId,
         clientName:    clientSnapshotName,
         clientAddress: clientSnapshotAddress,
         clientPhone:   clientSnapshotPhone,
@@ -602,11 +620,16 @@ class QuoteWithClient {
   final String? clientName;
 
   factory QuoteWithClient.fromJson(Map<String, dynamic> json) {
-    final clientRow = json['clients'] as Map<String, dynamic>?;
-    final quote     = Quote.fromJson(json);
+    final companyRow = json['companies'] as Map<String, dynamic>?;
+    final contactRow = json['contacts']  as Map<String, dynamic>?;
+    final quote      = Quote.fromJson(json);
+    final joinedName = companyRow?['name'] as String?
+        ?? (contactRow != null
+            ? '${contactRow['first_name'] ?? ''} ${contactRow['last_name'] ?? ''}'.trim()
+            : null);
     return QuoteWithClient(
       quote:      quote,
-      clientName: clientRow?['name'] as String? ?? quote.clientSnapshotName,
+      clientName: (joinedName?.isNotEmpty ?? false) ? joinedName : quote.clientSnapshotName,
     );
   }
 }
